@@ -1,34 +1,43 @@
 import { AppButton } from '@/components/app-button';
 import { AuthHeader } from '@/components/auth-header';
-import { FormInput } from '@/components/form-input';
+import { ControlledInput } from '@/components/controlled-fields';
+import { ErrorNotice } from '@/components/error-notice';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { Keyboard, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import React, { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { z } from 'zod';
 
 export default function ForgotPasswordScreen() {
   const insets = useSafeAreaInsets();
   const bg = useThemeColor({}, 'background');
   const tint = useThemeColor({}, 'tint');
-  const [kbOpen, setKbOpen] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    const sh = Keyboard.addListener('keyboardDidShow', () => setKbOpen(true));
-    const hd = Keyboard.addListener('keyboardDidHide', () => setKbOpen(false));
-    return () => { sh.remove(); hd.remove(); };
-  }, []);
+  const schema = z.object({ email: z.email('Enter a valid email address') });
+  type FormValues = z.infer<typeof schema>;
+  const { control, handleSubmit } = useForm<FormValues>({
+    defaultValues: { email: '' },
+    resolver: zodResolver(schema),
+    mode: 'onChange',
+  });
 
   return (
     <ThemedView style={[styles.container, { backgroundColor: bg, paddingTop: insets.top + 24 }]}> 
-      <KeyboardAvoidingView behavior={Platform.select({ ios: 'padding', android: 'height' })} keyboardVerticalOffset={insets.top + 80} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: kbOpen ? 120 : 24 }]} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView behavior={Platform.select({ ios: 'padding', android: 'height' })} keyboardVerticalOffset={insets.top} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <AuthHeader title="Forgot password" subtitle="Enter your email to reset your password." onBack={() => router.back()} />
 
+          <ErrorNotice message={formError} visible={!!formError} variant="danger" />
+
           <View style={styles.form}>
-            <FormInput icon="mail" placeholder="Email" keyboardType="email-address" autoCapitalize="none" returnKeyType="done" />
+            <ControlledInput control={control} name="email" icon="mail" placeholder="Email" keyboardType="email-address" autoCapitalize="none" returnKeyType="done" />
           </View>
 
           <View style={styles.switchRow}>
@@ -36,10 +45,27 @@ export default function ForgotPasswordScreen() {
             <Link href="/auth/sign-in" style={[styles.link, { color: tint }]}>Sign in</Link>
           </View>
         </ScrollView>
-        <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
-          <AppButton title="Send reset link" variant="primary" onPress={() => {}} style={{ width: '100%' }} />
-        </View>
       </KeyboardAvoidingView>
+      <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
+        <AppButton
+          title={submitting ? 'Sending link...' : 'Send reset link'}
+          variant="primary"
+          onPress={handleSubmit(async (vals) => {
+            if (submitting) return;
+            setFormError(null);
+            setSubmitting(true);
+            try {
+              console.log('Forgot submit', vals);
+              await new Promise((r) => setTimeout(r, 900));
+            } finally {
+              setSubmitting(false);
+            }
+          })}
+          disabled={submitting}
+          style={{ width: '100%' }}
+        />
+      </View>
+    
     </ThemedView>
   );
 }
@@ -48,7 +74,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: {
     paddingHorizontal: 24,
-    paddingBottom: 120,
+    paddingBottom: 24,
     gap: 24,
   },
   form: {

@@ -33,7 +33,7 @@ export function AppButton({
     isPrimary
       ? [{ backgroundColor: tint }]
       : [{ borderColor: `${tint}66`, borderWidth: 1, backgroundColor: 'transparent' }],
-    disabled ? { opacity: 0.5 } : null,
+    disabled ? { opacity: 0.4 } : null,
     style,
   ];
 

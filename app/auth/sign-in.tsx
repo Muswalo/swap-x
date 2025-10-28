@@ -1,40 +1,51 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import React, { useEffect, useState } from 'react';
-import { Keyboard, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import React, { useState } from 'react';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { Link } from 'expo-router';
 import { AppButton } from '@/components/app-button';
-import { FormInput } from '@/components/form-input';
 import { SocialButton } from '@/components/social-button';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { Divider } from '@/components/divider';
 import { useOnboarding } from '@/context/onboarding-provider';
 import { AuthHeader } from '@/components/auth-header';
+import { ControlledInput } from '@/components/controlled-fields';
+import { ErrorNotice } from '@/components/error-notice';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
 
 export default function SignInScreen() {
   const insets = useSafeAreaInsets();
   const bg = useThemeColor({}, 'background');
   const tint = useThemeColor({}, 'tint');
-  const text = useThemeColor({}, 'text');
   const { setOnboarding } = useOnboarding();
-  const [kbOpen, setKbOpen] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    const sh = Keyboard.addListener('keyboardDidShow', () => setKbOpen(true));
-    const hd = Keyboard.addListener('keyboardDidHide', () => setKbOpen(false));
-    return () => { sh.remove(); hd.remove(); };
-  }, []);
+  const schema = z.object({
+    email: z.string().trim().email('Enter a valid email address'),
+    password: z.string().min(6, 'Password should be at least 6 characters'),
+  });
+  type FormValues = z.infer<typeof schema>;
+  const { control, handleSubmit } = useForm<FormValues>({
+    defaultValues: { email: '', password: '' },
+    resolver: zodResolver(schema),
+    mode: 'onChange',
+  });
 
   return (
     <ThemedView style={[styles.container, { backgroundColor: bg, paddingTop: insets.top + 24 }]}> 
-      <KeyboardAvoidingView behavior={Platform.select({ ios: 'padding', android: 'height' })} keyboardVerticalOffset={insets.top + 80} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: kbOpen ? 120 : 24 }]} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView behavior={Platform.select({ ios: 'padding', android: 'height' })} keyboardVerticalOffset={insets.top} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <AuthHeader title="Welcome back" subtitle="Sign in to continue." onBack={() => setOnboarding(false)} />
 
+          <ErrorNotice message={formError} visible={!!formError} variant="danger" />
+
           <View style={styles.form}>
-            <FormInput icon="mail" placeholder="Email" keyboardType="email-address" autoCapitalize="none" returnKeyType="next" />
-            <FormInput icon="lock" placeholder="Password" secureTextEntry secureToggle returnKeyType="done" />
+            <ControlledInput control={control} name="email" icon="mail" placeholder="Email" keyboardType="email-address" autoCapitalize="none" returnKeyType="next" />
+            <ControlledInput control={control} name="password" icon="lock" placeholder="Password" secureTextEntry secureToggle returnKeyType="done" />
           </View>
 
           <View style={styles.forgotRow}>
@@ -50,10 +61,26 @@ export default function SignInScreen() {
             <Link href="/auth/sign-up" style={[styles.link, { color: tint }]}>Create an account</Link>
           </View>
         </ScrollView>
-        <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
-          <AppButton title="Sign in" variant="primary" onPress={() => {}} style={{ width: '100%' }} />
-        </View>
       </KeyboardAvoidingView>
+      <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
+        <AppButton
+          title={submitting ? 'Signing in...' : 'Sign in'}
+          variant="primary"
+          onPress={handleSubmit(async (vals) => {
+            if (submitting) return;
+            setFormError(null);
+            setSubmitting(true);
+            try {
+              console.log('SignIn submit', vals);
+              await new Promise((r) => setTimeout(r, 900));
+            } finally {
+              setSubmitting(false);
+            }
+          })}
+          disabled={submitting}
+          style={{ width: '100%' }}
+        />
+      </View>
     </ThemedView>
   );
 }
@@ -62,7 +89,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: {
     paddingHorizontal: 24,
-    paddingBottom: 120,
+    paddingBottom: 24,
     gap: 24,
   },
   form: {

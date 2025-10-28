@@ -12,12 +12,17 @@ export type AppCheckboxProps = {
 
 export function AppCheckbox({ checked, onChange, style }: AppCheckboxProps) {
   const tint = useThemeColor({}, 'tint');
+  const text = useThemeColor({}, 'text');
   return (
     <Pressable
       accessibilityRole="checkbox"
       accessibilityState={{ checked }}
       onPress={() => onChange?.(!checked)}
-      style={[styles.box, { borderColor: `${tint}66`, backgroundColor: checked ? `${tint}1A` : 'transparent' }, style]}
+      style={[
+        styles.box,
+        { borderColor: `${text}33`, backgroundColor: checked ? `${text}1A` : 'transparent' },
+        style,
+      ]}
     >
       {checked ? <Feather name="check" size={16} color={tint} /> : null}
     </Pressable>
