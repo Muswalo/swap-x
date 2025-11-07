@@ -2,7 +2,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
-import { Link } from 'expo-router';
+import { Link, router } from 'expo-router';
 import { AppButton } from '@/components/app-button';
 import { SocialButton } from '@/components/social-button';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,6 +15,7 @@ import { ErrorNotice } from '@/components/error-notice';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { supabase } from '@/lib/supabase';
 
 export default function SignInScreen() {
   const insets = useSafeAreaInsets();
@@ -29,7 +30,7 @@ export default function SignInScreen() {
     password: z.string().min(6, 'Password should be at least 6 characters'),
   });
   type FormValues = z.infer<typeof schema>;
-  const { control, handleSubmit } = useForm<FormValues>({
+  const { control, handleSubmit, setError } = useForm<FormValues>({
     defaultValues: { email: '', password: '' },
     resolver: zodResolver(schema),
     mode: 'onChange',
@@ -71,8 +72,45 @@ export default function SignInScreen() {
             setFormError(null);
             setSubmitting(true);
             try {
-              console.log('SignIn submit', vals);
-              await new Promise((r) => setTimeout(r, 900));
+              const { data, error } = await supabase.auth.signInWithPassword({
+                email: vals.email,
+                password: vals.password,
+              });
+
+              if (error) {
+                const msg = (error as any)?.message?.toLowerCase?.() || '';
+                if (msg.includes('invalid') && (msg.includes('login') || msg.includes('credentials') || msg.includes('password'))) {
+                  setFormError('Invalid email or password');
+                } else if (msg.includes('confirm') || msg.includes('not confirmed') || msg.includes('verify')) {
+                  try {
+                    const { error: resendError } = await supabase.auth.resend({ type: 'signup', email: vals.email });
+                    if (resendError) {
+                      const rmsg = (resendError as any)?.message?.toLowerCase?.() || '';
+                      if (rmsg.includes('rate') && rmsg.includes('limit')) {
+                        setFormError('Too many attempts. Please try again later.');
+                      } else if (rmsg.includes('already') && (rmsg.includes('confirm') || rmsg.includes('verified'))) {
+                        setFormError('Email already verified. Please try signing in again.');
+                      } else {
+                        setFormError('Could not send verification email. Please try again.');
+                      }
+                      return;
+                    }
+                    router.push({ pathname: '/auth/verify-email', params: { email: vals.email } });
+                  } catch {
+                    setFormError('Could not send verification email. Please try again.');
+                  }
+                } else if (msg.includes('rate') && msg.includes('limit')) {
+                  setFormError('Too many attempts. Please try again later.');
+                } else if (/ban|block|disable|suspend|deactivat/.test(msg)) {
+                  setFormError('Your account has been disabled or blocked. Please contact support.');
+                } else {
+                  setFormError('Could not sign in. Please try again.');
+                }
+                return;
+              }
+
+              console.log('SignIn success', { user: data?.user });
+              router.replace('/(tabs)');
             } finally {
               setSubmitting(false);
             }

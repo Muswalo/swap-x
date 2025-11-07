@@ -8,8 +8,9 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { useOnboarding } from "@/context/onboarding-provider";
 import { useThemeColor } from "@/hooks/use-theme-color";
+import { supabase } from '@/lib/supabase';
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Link } from "expo-router";
+import { Link, router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { useForm } from 'react-hook-form';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from "react-native";
@@ -57,7 +58,7 @@ export default function SignUpScreen() {
 
   type FormValues = z.infer<typeof schema>;
 
-  const { control, handleSubmit, formState, setValue, watch } =
+  const { control, handleSubmit, formState, setValue, watch, setError } =
     useForm<FormValues>({
       defaultValues: {
         firstName: "",
@@ -149,10 +150,40 @@ export default function SignUpScreen() {
             setSubmitting(true);
             try {
               const fullPhone = `${vals.dialCode}${vals.phoneLocal}`;
-              console.log("SignUp submit", { ...vals, phone: fullPhone });
-              await new Promise((r) => setTimeout(r, 900));
+              const { data, error } = await supabase.auth.signUp({
+                email: vals.email,
+                password: vals.password,
+                options: {
+                  data: {
+                    first_name: vals.firstName,
+                    last_name: vals.lastName,
+                    phone: fullPhone,
+                  },
+                },
+              });
+
+              // Handle Supabase duplicate email edge-case where identities may be empty
+              if (!error && data?.user && Array.isArray((data as any).user.identities) && (data as any).user.identities.length === 0) {
+                setError('email', { type: 'manual', message: 'Email already in use' });
+                return;
+              }
+
+              if (error) {
+                console.log(error)
+                const msg = (error as any)?.message?.toLowerCase?.() || '';
+                if (msg.includes('already') && msg.includes('exist')) {
+                  setError('email', { type: 'manual', message: 'Email already in use' });
+                } else if (msg.includes('rate') && msg.includes('limit')) {
+                  setFormError('Too many attempts. Please try again later.');
+                } else {
+                  setFormError('Could not create account. Please try again.');
+                }
+                return;
+              }
+
+              console.log('SignUp success', { user: data?.user });
+              router.push({ pathname: '/auth/verify-email', params: { email: vals.email } });
             } finally {
-              setFormError("this is a test erro")
               setSubmitting(false);
 
             }

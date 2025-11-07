@@ -5,6 +5,9 @@ import "react-native-reanimated";
 
 import { OnboardingProvider, useOnboarding } from "@/context/onboarding-provider";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import React, { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
+import { SplashScreen } from '@/components/splash-screen';
 
 export const unstable_settings = {
   anchor: "(tabs)",
@@ -13,11 +16,32 @@ export const unstable_settings = {
 function RootLayoutContent() {
   const colorScheme = useColorScheme();
   const { hasCompletedOnboarding } = useOnboarding();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isBooting, setIsBooting] = useState(true);
 
-  const isLoggedIn = false;
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!mounted) return;
+      setIsLoggedIn(!!data.session?.user);
+    })().finally(() => setIsBooting(false));
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsLoggedIn(!!session?.user);
+    });
+
+    return () => {
+      mounted = false;
+      sub.subscription?.unsubscribe();
+    };
+  }, []);
 
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+      {isBooting ? (
+        <SplashScreen />
+      ) : (
       <Stack
         screenOptions={{
           headerShown: false,
@@ -41,8 +65,8 @@ function RootLayoutContent() {
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="modal" options={{ presentation: "modal", title: "Modal" }} />
         </Stack.Protected>
-
       </Stack>
+      )}
       <StatusBar style="auto" />
     </ThemeProvider>
   );
