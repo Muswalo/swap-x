@@ -158,6 +158,7 @@ export default function SignUpScreen() {
                     first_name: vals.firstName,
                     last_name: vals.lastName,
                     phone: fullPhone,
+                    profile_completed: false,
                   },
                 },
               });

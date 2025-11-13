@@ -1,6 +1,8 @@
 import SwapPreferenceCard from "@/components/home/FilterCard";
 import { HomeHeader } from "@/components/home/HomeHeader";
+import { HomeScreenSkeleton } from "@/components/home/HomeScreenSkeleton";
 import { MinistryChips } from "@/components/home/MinistryChips";
+import { QuickActions } from "@/components/home/QuickActions";
 import { SearchBar } from "@/components/home/SearchBar";
 import { SwapCard } from "@/components/home/SwapCard";
 import { ThemedText } from "@/components/themed-text";
@@ -8,6 +10,7 @@ import { ThemedView } from "@/components/themed-view";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { supabase } from "@/lib/supabase";
 import { Feather } from "@expo/vector-icons";
+import { Redirect } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -17,6 +20,7 @@ type User = {
   user_metadata: {
     first_name?: string;
     last_name?: string;
+    profile_completed?: boolean;
   };
 };
 
@@ -76,6 +80,14 @@ const MOCK_SWAPS: Swap[] = [
   },
 ];
 
+const handleCreateSwap = () => {
+  console.log('Navigate to create swap');
+};
+
+const handleViewMySwaps = () => {
+  console.log('Navigate to my swaps');
+};
+
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const bg = useThemeColor({}, "background");
@@ -89,13 +101,40 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterFrom, setFilterFrom] = useState("Any Location");
   const [filterTo, setFilterTo] = useState("Any Location");
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasCompletedProfile, setHasCompletedProfile] = useState<boolean | null>(null);
 
   useEffect(() => {
-    (async () => {
-      const { data } = await supabase.auth.getUser();
-      if (data?.user) setUser(data.user as any);
-    })();
+    checkProfileStatus();
   }, []);
+
+  const checkProfileStatus = async () => {
+    try {
+      const { data } = await supabase.auth.getUser();
+      if (data?.user) {
+        setUser(data.user as any);
+        
+        // TODO: Replace with actual database check
+        // Option 1: Check user metadata
+        const profileCompleted = data.user.user_metadata?.profile_completed ?? false;
+        
+        // Option 2: Check profiles table (recommended)
+        // const { data: profileData } = await supabase
+        //   .from('profiles')
+        //   .select('profile_completed')
+        //   .eq('id', data.user.id)
+        //   .single();
+        // const profileCompleted = profileData?.profile_completed ?? false;
+        
+        setHasCompletedProfile(profileCompleted);
+      }
+    } catch (error) {
+      console.error('Error checking profile status:', error);
+      setHasCompletedProfile(false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const userName =
     user?.user_metadata?.first_name && user?.user_metadata?.last_name
@@ -106,6 +145,17 @@ export default function HomeScreen() {
     userName
   )}&background=random&size=128&bold=true`;
 
+  // Show skeleton while loading
+  if (isLoading) {
+    return <HomeScreenSkeleton />;
+  }
+
+  // Redirect to profile setup if not completed
+  if (hasCompletedProfile === false) {
+    return <Redirect href="/profile-setup" />;
+  }
+
+  // Show normal home screen
   return (
     <ThemedView
       style={[
@@ -136,6 +186,12 @@ export default function HomeScreen() {
           currentLocation={filterFrom}
           desiredLocation={filterTo}
           onEdit={() => { }}
+        />
+
+        {/* Quick Actions */}
+        <QuickActions
+          onCreateSwap={handleCreateSwap}
+          onViewMySwaps={handleViewMySwaps}
         />
 
         {/* Ministry Tabs */}

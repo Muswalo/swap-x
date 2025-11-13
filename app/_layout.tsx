@@ -3,11 +3,11 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
 
+import { SplashScreen } from '@/components/splash-screen';
 import { OnboardingProvider, useOnboarding } from "@/context/onboarding-provider";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { SplashScreen } from '@/components/splash-screen';
+import React, { useEffect, useState } from 'react';
 
 export const unstable_settings = {
   anchor: "(tabs)",
@@ -42,30 +42,31 @@ function RootLayoutContent() {
       {isBooting ? (
         <SplashScreen />
       ) : (
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          animation: 'slide_from_right',
-          gestureEnabled: true,
-        }}
-      >
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            animation: 'slide_from_right',
+            gestureEnabled: true,
+          }}
+        >
 
-        {/* Onboarding screen */}
-        <Stack.Protected guard={!hasCompletedOnboarding}>
-          <Stack.Screen name="onboarding" />
-        </Stack.Protected>
+          {/* Onboarding screen */}
+          <Stack.Protected guard={!hasCompletedOnboarding}>
+            <Stack.Screen name="onboarding" />
+          </Stack.Protected>
 
-        {/* Auth screen */}
-        <Stack.Protected guard={hasCompletedOnboarding && !isLoggedIn}>
-          <Stack.Screen name="auth" />
-        </Stack.Protected>
+          {/* Auth screen */}
+          <Stack.Protected guard={hasCompletedOnboarding && !isLoggedIn}>
+            <Stack.Screen name="auth" />
+          </Stack.Protected>
 
-        {/* Main app */}
-        <Stack.Protected guard={isLoggedIn}>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="modal" options={{ presentation: "modal", title: "Modal" }} />
-        </Stack.Protected>
-      </Stack>
+          {/* Main app */}
+          <Stack.Protected guard={isLoggedIn}>
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="profile-setup" options={{ headerShown: false }} />
+            <Stack.Screen name="modal" options={{ presentation: "modal", title: "Modal" }} />
+          </Stack.Protected>
+        </Stack>
       )}
       <StatusBar style="auto" />
     </ThemeProvider>
