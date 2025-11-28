@@ -8,78 +8,216 @@ export type SwapCardProps = {
   id: string;
   posterName: string;
   currentMinistry: string;
-  desiredMinistry: string;
+  desiredMinistry?: string;
   currentLocation: string;
   desiredLocation: string;
   postedDate: string;
   avatarUri?: string;
+  role?: string;
+  grade?: string;
+  yearsOfService?: number;
   onPress?: (id: string) => void;
 };
 
-export function SwapCard({ 
-  id, 
-  posterName, 
-  currentMinistry, 
-  currentLocation, 
-  desiredLocation, 
-  postedDate, 
+export function SwapCard({
+  id,
+  posterName,
+  currentMinistry,
+  desiredMinistry,
+  currentLocation,
+  desiredLocation,
+  postedDate,
   avatarUri,
-  onPress 
+  role,
+  grade,
+  yearsOfService,
+  onPress
 }: SwapCardProps) {
   const text = useThemeColor({}, 'text');
   const tint = useThemeColor({}, 'tint');
   const border = `${text}15`;
   const cardBg = useThemeColor({}, 'background');
 
+  // Hardcoded extra district details for MVP
+  const currentDistrictInfo = {
+    type: 'Rural',
+    amenities: ['Schools', 'Hospital', 'Market'],
+    transport: 'Moderate roads, bus access',
+    housing: 'Available',
+  };
+
+  const desiredDistrictInfo = {
+    type: 'Urban',
+    amenities: ['Schools', 'Hospital', 'Shops', 'Clinics'],
+    transport: 'Good roads, taxi & bus',
+    housing: 'Limited',
+  };
+
+  const matchScore = 87; // Hardcoded similarity score for now
+  const matchExplanation = "Strong match based on urban preference with reliable amenities and transport access";
+
   return (
-    <Pressable 
-      style={[styles.card, { backgroundColor: cardBg, borderColor: border }]} 
+    <Pressable
+      style={({ pressed }) => [
+        styles.card,
+        {
+          backgroundColor: cardBg,
+          borderColor: border,
+          opacity: pressed ? 0.7 : 1,
+        },
+      ]}
       onPress={() => onPress?.(id)}
     >
-      {/* Ministry Badge - Positioned absolutely in top right */}
-      <View style={[styles.ministryBadge, { backgroundColor: cardBg, borderColor: border }]}>
-        <ThemedText style={[styles.ministryText, { color: tint }]} numberOfLines={1}>
-          {currentMinistry}
-        </ThemedText>
-      </View>
-      
-      <View style={styles.content}>
-        {/* Avatar/Image Section */}
-        <View style={[styles.imageContainer, { backgroundColor: `${text}0A` }]}>
+      {/* Header Section with Avatar and User Info */}
+      <View style={styles.header}>
+        {/* Circular Avatar - Top Left */}
+        <View style={[styles.avatarContainer, { backgroundColor: `${text}0A` }]}>
           {avatarUri ? (
-            <Image source={{ uri: avatarUri }} style={styles.image} />
+            <Image source={{ uri: avatarUri }} style={styles.avatar} />
           ) : (
             <View style={[styles.placeholderAvatar, { backgroundColor: tint }]}>
-              <ThemedText style={styles.placeholderText}>{posterName.charAt(0)}</ThemedText>
+              <ThemedText style={styles.placeholderText}>
+                {posterName.charAt(0).toUpperCase()}.
+              </ThemedText>
             </View>
           )}
         </View>
 
-        {/* Details Section */}
-        <View style={styles.details}>
-          {/* Person Name */}
-          <ThemedText style={styles.name} numberOfLines={1}>
-            {posterName}
-          </ThemedText>
-
-          {/* Location with Arrow */}
-          <View style={styles.locationRow}>
-            <ThemedText style={[styles.locationText, { color: `${text}99` }]} numberOfLines={1}>
-              {currentLocation}
+        {/* User Details */}
+        <View style={styles.userInfo}>
+          {/* Name and Title */}
+          <View style={styles.titleSection}>
+            <ThemedText style={styles.name}>
+              {posterName.split(' ')[0]} {'•••••'}
             </ThemedText>
-            <Feather name="arrow-right" size={14} color={`${text}99`} style={styles.arrowIcon} />
-            <ThemedText style={[styles.locationText, { color: `${text}99` }]} numberOfLines={1}>
-              {desiredLocation}
+            <ThemedText style={[styles.roleText, { color: `${text}88` }]} numberOfLines={1}>
+              {role || 'Staff Member'} • {currentMinistry}
             </ThemedText>
           </View>
 
-          {/* Posted Date */}
-          <View style={styles.dateRow}>
-            <Feather name="calendar" size={12} color={tint} />
-            <ThemedText style={[styles.dateText, { color: tint }]}>
+          {/* Meta Information Row */}
+          <View style={styles.metaInfoRow}>
+            {yearsOfService && (
+              <ThemedText style={[styles.metaText, { color: `${text}77` }]}>
+                {yearsOfService} yrs
+              </ThemedText>
+            )}
+            {grade && (
+              <ThemedText style={[styles.metaText, { color: `${text}77` }]}>
+                {grade}
+              </ThemedText>
+            )}
+            <ThemedText style={[styles.metaText, { color: `${text}77` }]}>
               {postedDate}
             </ThemedText>
           </View>
+        </View>
+
+        {/* Match Score Badge */}
+        <View style={[styles.matchBadge, { backgroundColor: `${tint}12`, borderColor: `${tint}30` }]}>
+          <Feather name="star" size={14} color={tint} />
+          <ThemedText style={[styles.matchScore, { color: tint }]}>
+            {matchScore}%
+          </ThemedText>
+        </View>
+      </View>
+
+      {/* Divider */}
+      <View style={[styles.divider, { backgroundColor: border }]} />
+
+      {/* Swap Details Section */}
+      <View style={styles.swapSection}>
+        {/* Location Swap Details - Two Column Layout */}
+        <View style={styles.locationWrapper}>
+          {/* FROM Column */}
+          <View style={styles.columnWithLabel}>
+            <ThemedText style={[styles.swapLabel, { color: `${text}77` }]}>FROM</ThemedText>
+            <View style={styles.districtColumn}>
+              <View style={styles.districtHeader}>
+                <View style={styles.locationTitleRow}>
+                  <View style={[styles.dot, { backgroundColor: text }]} />
+                  <ThemedText style={[styles.districtTitle, { color: text }]} numberOfLines={1}>
+                    {currentLocation}
+                  </ThemedText>
+                </View>
+                <View style={[styles.typeTag, { backgroundColor: `${text}0A` }]}>
+                  <ThemedText style={[styles.typeText, { color: `${text}99` }]}>
+                    {currentDistrictInfo.type}
+                  </ThemedText>
+                </View>
+              </View>
+
+              <View style={styles.infoRow}>
+                <Feather name="map-pin" size={10} color={`${text}66`} />
+                <ThemedText style={[styles.infoText, { color: `${text}77` }]} numberOfLines={2}>
+                  {currentDistrictInfo.amenities.join(', ')}
+                </ThemedText>
+              </View>
+
+              <View style={styles.infoRow}>
+                <Feather name="truck" size={10} color={`${text}66`} />
+                <ThemedText style={[styles.infoText, { color: `${text}77` }]} numberOfLines={2}>
+                  {currentDistrictInfo.transport}
+                </ThemedText>
+              </View>
+
+              <View style={styles.infoRow}>
+                <Feather name="home" size={10} color={`${text}66`} />
+                <ThemedText style={[styles.infoText, { color: `${text}77` }]}>
+                  {currentDistrictInfo.housing}
+                </ThemedText>
+              </View>
+            </View>
+          </View>
+
+          {/* TO Column */}
+          <View style={styles.columnWithLabel}>
+            <ThemedText style={[styles.swapLabel, { color: `${text}77` }]}>TO</ThemedText>
+            <View style={styles.districtColumn}>
+              <View style={styles.districtHeader}>
+                <View style={styles.locationTitleRow}>
+                  <View style={[styles.dot, { backgroundColor: text }]} />
+                  <ThemedText style={[styles.districtTitle, { color: text }]} numberOfLines={1}>
+                    {desiredLocation}
+                  </ThemedText>
+                </View>
+                <View style={[styles.typeTag, { backgroundColor: `${text}0A` }]}>
+                  <ThemedText style={[styles.typeText, { color: `${text}99` }]}>
+                    {desiredDistrictInfo.type}
+                  </ThemedText>
+                </View>
+              </View>
+
+              <View style={styles.infoRow}>
+                <Feather name="map-pin" size={10} color={`${text}66`} />
+                <ThemedText style={[styles.infoText, { color: `${text}77` }]} numberOfLines={2}>
+                  {desiredDistrictInfo.amenities.join(', ')}
+                </ThemedText>
+              </View>
+
+              <View style={styles.infoRow}>
+                <Feather name="truck" size={10} color={`${text}66`} />
+                <ThemedText style={[styles.infoText, { color: `${text}77` }]} numberOfLines={2}>
+                  {desiredDistrictInfo.transport}
+                </ThemedText>
+              </View>
+
+              <View style={styles.infoRow}>
+                <Feather name="home" size={10} color={`${text}66`} />
+                <ThemedText style={[styles.infoText, { color: `${text}77` }]}>
+                  {desiredDistrictInfo.housing}
+                </ThemedText>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* Match Explanation */}
+        <View style={[styles.matchExplanation, { backgroundColor: `${tint}08` }]}>
+          <Feather name="info" size={12} color={tint} />
+          <ThemedText style={[styles.explanationText, { color: `${text}99` }]}>
+            {matchExplanation}
+          </ThemedText>
         </View>
       </View>
     </Pressable>
@@ -88,24 +226,24 @@ export function SwapCard({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 20,
+    borderRadius: 16,
     borderWidth: 1,
     marginBottom: 12,
     overflow: 'hidden',
   },
-  content: {
+  header: {
     flexDirection: 'row',
     padding: 12,
-    gap: 12,
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    gap: 10,
   },
-  imageContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 12,
+  avatarContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     overflow: 'hidden',
   },
-  image: {
+  avatar: {
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
@@ -118,59 +256,126 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     color: '#fff',
-    fontSize: 32,
+    fontSize: 20,
     fontWeight: '700',
   },
-  details: {
+  userInfo: {
     flex: 1,
     gap: 4,
-    justifyContent: 'center',
+  },
+  titleSection: {
+    gap: 2,
   },
   name: {
-    fontSize: 16,
-    fontWeight: '600',
-    lineHeight: 20,
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 18,
+    letterSpacing: -0.3,
   },
-  locationRow: {
+  roleText: {
+    fontSize: 12,
+    fontWeight: '500',
+    lineHeight: 15,
+  },
+  metaInfoRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  metaText: {
+    fontSize: 10,
+    lineHeight: 13,
+    fontWeight: '500',
+  },
+  matchBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  matchScore: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  divider: {
+    height: 1,
+    marginHorizontal: 12,
+  },
+  swapSection: {
+    padding: 12,
+    gap: 10,
+  },
+  locationWrapper: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'flex-start',
+  },
+  columnWithLabel: {
+    flex: 1,
+    gap: 6,
+  },
+  swapLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+  },
+  districtColumn: {
+    gap: 5,
+  },
+  districtHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 4,
+    marginBottom: 2,
+  },
+  locationTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flex: 1,
   },
-  locationText: {
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  districtTitle: {
     fontSize: 13,
-    lineHeight: 18,
+    fontWeight: '600',
+    flex: 1,
   },
-  arrowIcon: {
-    marginHorizontal: 2,
+  typeTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 5,
   },
-  dateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 2,
-  },
-  dateText: {
-    fontSize: 12,
+  typeText: {
+    fontSize: 10,
     fontWeight: '500',
   },
-  ministryBadge: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1,
-    maxWidth: 120,
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 5,
   },
-  ministryText: {
-    fontSize: 12,
-    fontWeight: '600',
-    textAlign: 'center',
-    lineHeight: 16,
-    opacity: 0.9,
+  infoText: {
+    fontSize: 10,
+    lineHeight: 13,
+    flex: 1,
+  },
+  matchExplanation: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    padding: 8,
+    borderRadius: 8,
+  },
+  explanationText: {
+    fontSize: 10,
+    lineHeight: 14,
+    flex: 1,
   },
 });

@@ -1,5 +1,15 @@
+import { AppButton } from '@/components/app-button';
+import { DistrictModal } from '@/components/district-modal';
+import { MinistryModal } from '@/components/ministry-modal';
+import { SuccessModal } from '@/components/success-modal';
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
+import { useThemeColor } from '@/hooks/use-theme-color';
+import { supabase } from '@/lib/supabase';
 import { Feather } from '@expo/vector-icons';
+import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
     Image,
@@ -13,14 +23,6 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppButton } from '@/components/app-button';
-import { DistrictModal } from '@/components/district-modal';
-import { MinistryModal } from '@/components/ministry-modal';
-import { SuccessModal } from '@/components/success-modal';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { useThemeColor } from '@/hooks/use-theme-color';
-
 export type ProfileSetupProps = {
     onComplete?: () => void;
 };
@@ -30,18 +32,27 @@ type SwapListing = {
     currentMinistry: string;
     currentDistrict: string;
     currentInstitution: string;
+    currentAreaType: string;
     salaryScale: string;
     reasonForSwap: string;
+    jobTitle: string;
 
 
     // Desired Position
     desiredMinistry: string;
     desiredDistrict: string;
+    desiredAreaType: string;
 
     // Additional Details
     housingCondition: string;
     additionalDetails: string;
     images: string[];
+};
+
+type ProcessedImage = {
+    uri: string;
+    width: number;
+    height: number;
 };
 
 const MINISTRIES = [
@@ -68,6 +79,18 @@ const DISTRICTS = [
     'Solwezi',
     'Mongu',
     'Mansa',
+    'Kafue',
+    'Chongwe',
+    'Chadiza',
+    'Chama',
+    'Kalomo',
+    'Mazabuka',
+    'Nakonde',
+    'Mbala',
+    'Mporokoso',
+    'Kasongo',
+    'Chavuma',
+    'Kabompo',
     'Other',
 ];
 
@@ -88,8 +111,19 @@ const HOUSING_CONDITIONS = [
     'No Housing',
 ];
 
+const AREA_TYPES = [
+    'Rural',
+    'Peri-urban',
+    'Urban',
+];
+
+const IMAGE_MAX_WIDTH = 1200;
+const IMAGE_MAX_HEIGHT = 1200;
+const IMAGE_QUALITY = 0.2;
+
 export default function ProfileSetupScreen({ onComplete }: ProfileSetupProps) {
     const insets = useSafeAreaInsets();
+    const router = useRouter();
     const bg = useThemeColor({}, 'background');
     const text = useThemeColor({}, 'text');
     const tint = useThemeColor({}, 'tint');
@@ -101,13 +135,16 @@ export default function ProfileSetupScreen({ onComplete }: ProfileSetupProps) {
         currentMinistry: '',
         currentDistrict: '',
         currentInstitution: '',
+        currentAreaType: '',
         salaryScale: '',
         desiredMinistry: '',
         desiredDistrict: '',
+        desiredAreaType: '',
         housingCondition: '',
         additionalDetails: '',
         images: [],
         reasonForSwap: '',
+        jobTitle: '',
     });
 
     const [submitting, setSubmitting] = useState(false);
@@ -116,6 +153,7 @@ export default function ProfileSetupScreen({ onComplete }: ProfileSetupProps) {
     const [successModalVisible, setSuccessModalVisible] = useState(false);
     const [currentMinistryModalType, setCurrentMinistryModalType] = useState<'current' | 'desired'>('current');
     const [currentDistrictModalType, setCurrentDistrictModalType] = useState<'current' | 'desired'>('current');
+    const [selectedImages, setSelectedImages] = useState<string[]>([]);
 
     const handleSkip = () => {
         onComplete?.();
@@ -150,18 +188,15 @@ export default function ProfileSetupScreen({ onComplete }: ProfileSetupProps) {
     const handleImagePick = async () => {
         try {
             const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                mediaTypes: ["images"],
                 allowsMultipleSelection: true,
-                quality: 0.8,
+                quality: 1,
                 selectionLimit: 4,
             });
 
             if (!result.canceled) {
                 const newImages = result.assets.map(asset => asset.uri);
-                setListing(prev => ({
-                    ...prev,
-                    images: [...prev.images, ...newImages].slice(0, 4),
-                }));
+                setSelectedImages(prev => [...prev, ...newImages].slice(0, 4));
             }
         } catch (error) {
             console.error('Error picking images:', error);
@@ -169,98 +204,129 @@ export default function ProfileSetupScreen({ onComplete }: ProfileSetupProps) {
     };
 
     const handleRemoveImage = (index: number) => {
-        setListing(prev => ({
-            ...prev,
-            images: prev.images.filter((_, i) => i !== index),
-        }));
+        setSelectedImages(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const manipulateImage = async (uri: string): Promise<ProcessedImage> => {
+        try {
+            const result = await ImageManipulator.manipulateAsync(
+                uri,
+                [],
+                {
+                    compress: IMAGE_QUALITY,
+                    format: ImageManipulator.SaveFormat.JPEG,
+                }
+            );
+
+            return {
+                uri: result.uri,
+                width: result.width,
+                height: result.height,
+            };
+        } catch (error) {
+            console.error('Error manipulating image:', error);
+            throw error;
+        }
+    };
+
+
+    const uploadToCloudinary = async (imageUri: string): Promise<string> => {
+        try {
+            const formData = new FormData();
+            formData.append("file", {
+                uri: imageUri,
+                type: "image/jpeg",
+                name: `image_${Date.now()}.jpg`,
+            } as any);
+
+            formData.append("upload_preset", process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAS_PRESET!);
+            formData.append("cloud_name", process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME!);
+
+            const response = await fetch(
+                `https://api.cloudinary.com/v1_1/diijbevmb/image/upload`,
+                {
+                    method: "POST",
+                    body: formData,
+                }
+            );
+
+            const result = await response.json();
+            return result.secure_url;
+        } catch (error) {
+            console.error("Cloudinary upload failed:", error);
+            throw error;
+        }
     };
 
     const handleSubmit = async () => {
         setSubmitting(true);
         try {
-            // Log all swap listing data to console
-            console.log('🚀 SWAP LISTING SUBMISSION');
-            console.log('═══════════════════════════════════════');
-            console.log('📋 CURRENT POSITION');
-            console.log('  Ministry:', listing.currentMinistry);
-            console.log('  District:', listing.currentDistrict);
-            console.log('  Institution:', listing.currentInstitution || 'N/A');
-            console.log('  Salary Scale:', listing.salaryScale || 'N/A');
-            console.log('  Housing Condition:', listing.housingCondition || 'N/A');
-            console.log('  Reason for Swap:', listing.reasonForSwap || 'N/A');
+            let uploadedUrls: string[] = [];
 
-            console.log('\n🎯 DESIRED POSITION');
-            console.log('  Ministry:', listing.desiredMinistry || 'N/A');
-            console.log('  District:', listing.desiredDistrict);
 
-            console.log('\n📝 ADDITIONAL INFORMATION');
-            console.log('  Details:', listing.additionalDetails || 'N/A');
-            console.log('  Images Count:', listing.images.length);
-            if (listing.images.length > 0) {
-                listing.images.forEach((uri, index) => {
-                    console.log(`    Image ${index + 1}:`, uri);
-                });
+
+            // Get current user
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                alert('User not authenticated');
+                setSubmitting(false);
+                return;
+            }
+            // Check if images are attached
+            if (selectedImages.length !== 0) {
+                // Manipulate all images
+                const manipulatedImages = await Promise.all(
+                    selectedImages.map(uri => manipulateImage(uri))
+                );
+
+                // Upload all manipulated images to Cloudinary
+                uploadedUrls = await Promise.all(
+                    manipulatedImages.map(img => uploadToCloudinary(img.uri))
+                );
             }
 
-            console.log('\n📊 COMPLETE LISTING OBJECT');
-            console.log(listing);
-            console.log('═══════════════════════════════════════\n');
+            // Create swap listing in Supabase
+            const { error: swapError } = await supabase.from('swaps').insert({
+                user_id: user.id,
+                current_ministry: listing.currentMinistry,
+                current_district: listing.currentDistrict,
+                current_institution: listing.currentInstitution,
+                current_area_type: listing.currentAreaType,
+                salary_scale: listing.salaryScale,
+                reason_for_swap: listing.reasonForSwap,
+                job_title: listing.jobTitle,
+                desired_ministry: listing.currentMinistry,
+                desired_district: listing.desiredDistrict,
+                desired_area_type: listing.desiredAreaType,
+                housing_condition: listing.housingCondition,
+                additional_details: listing.additionalDetails,
+                images: uploadedUrls,
+                status: 'active',
+            });
 
-            // Simulate submission delay (5 seconds)
-            await new Promise(resolve => setTimeout(resolve, 5000));
+            if (swapError) throw swapError;
 
-            console.log('✅ Submission completed successfully!');
+            // Update profile as completed
+            const { error: profileError } = await supabase
+                .from('profiles')
+                .update({ profile_completed: true })
+                .eq('user_id', user.id);
+
+            if (profileError) throw profileError;
 
             // Show success modal
             setSuccessModalVisible(true);
-
-            // Save swap listing to Supabase
-            // const { data: { user } } = await supabase.auth.getUser();
-            // if (user) {
-            //   // Upload images first
-            //   const imageUrls = await Promise.all(
-            //     listing.images.map(async (uri, index) => {
-            //       const response = await fetch(uri);
-            //       const blob = await response.blob();
-            //       const fileName = `${user.id}/${Date.now()}_${index}.jpg`;
-            //       await supabase.storage.from('swap-images').upload(fileName, blob);
-            //       const { data } = supabase.storage.from('swap-images').getPublicUrl(fileName);
-            //       return data.publicUrl;
-            //     })
-            //   );
-            //
-            //   // Create swap listing
-            //   await supabase.from('swaps').insert({
-            //     user_id: user.id,
-            //     current_ministry: listing.currentMinistry,
-            //     current_district: listing.currentDistrict,
-            //     current_institution: listing.currentInstitution,
-            //     salary_scale: listing.salaryScale,
-            //     desired_ministry: listing.desiredMinistry,
-            //     desired_district: listing.desiredDistrict,
-            //     housing_condition: listing.housingCondition,
-            //     additional_details: listing.additionalDetails,
-            //     images: imageUrls,
-            //     status: 'active',
-            //   });
-            //
-            //   // Update profile as completed
-            //   await supabase.from('profiles').upsert({
-            //     id: user.id,
-            //     profile_completed: true,
-            //   });
-            // }
         } catch (error) {
             console.error('Error creating listing:', error);
+            alert('Failed to create listing. Please try again.');
         } finally {
             setSubmitting(false);
         }
     };
 
     const handleSuccessProceed = () => {
-        console.log('👉 Proceeding after success!');
         setSuccessModalVisible(false);
-        onComplete?.();
+        router.replace('/(tabs)');
     };
 
     const canSubmit =
@@ -330,7 +396,7 @@ export default function ProfileSetupScreen({ onComplete }: ProfileSetupProps) {
                                             backgroundColor: tint,
                                             width: `${(Object.values(listing).filter(v =>
                                                 Array.isArray(v) ? v.length > 0 : v !== ''
-                                            ).length / 7) * 100
+                                            ).length / 9) * 100
                                                 }%`,
                                         },
                                     ]}
@@ -339,7 +405,7 @@ export default function ProfileSetupScreen({ onComplete }: ProfileSetupProps) {
                             <ThemedText style={styles.progressText}>
                                 {Object.values(listing).filter(v =>
                                     Array.isArray(v) ? v.length > 0 : v !== ''
-                                ).length} of 7 fields completed
+                                ).length} of 10 fields completed
                             </ThemedText>
                         </View>
 
@@ -370,7 +436,7 @@ export default function ProfileSetupScreen({ onComplete }: ProfileSetupProps) {
                                     {MINISTRIES.map((ministry) => {
                                         const isSelected = listing.currentMinistry === ministry;
                                         const isOtherSelected = ministry === 'Other' && listing.currentMinistry && !MINISTRIES.includes(listing.currentMinistry);
-                                        
+
                                         return (
                                             <Pressable
                                                 key={ministry}
@@ -427,7 +493,7 @@ export default function ProfileSetupScreen({ onComplete }: ProfileSetupProps) {
                                     {DISTRICTS.map((district) => {
                                         const isSelected = listing.currentDistrict === district;
                                         const isOtherSelected = district === 'Other' && listing.currentDistrict && !DISTRICTS.includes(listing.currentDistrict);
-                                        
+
                                         return (
                                             <Pressable
                                                 key={district}
@@ -473,6 +539,47 @@ export default function ProfileSetupScreen({ onComplete }: ProfileSetupProps) {
                                 </ScrollView>
                             </View>
 
+                            {/* Area Type */}
+                            <View style={styles.fieldGroup}>
+                                <ThemedText style={styles.label}>Current Area Type</ThemedText>
+                                <ScrollView
+                                    horizontal
+                                    showsHorizontalScrollIndicator={false}
+                                    contentContainerStyle={styles.chipsContainer}
+                                >
+                                    {AREA_TYPES.map((areaType) => (
+                                        <Pressable
+                                            key={areaType}
+                                            onPress={() =>
+                                                setListing({ ...listing, currentAreaType: areaType })
+                                            }
+                                            style={({ pressed }) => [
+                                                styles.chip,
+                                                {
+                                                    backgroundColor:
+                                                        listing.currentAreaType === areaType ? tint : cardBg,
+                                                    borderColor:
+                                                        listing.currentAreaType === areaType ? tint : border,
+                                                    opacity: pressed ? 0.7 : 1,
+                                                },
+                                            ]}
+                                        >
+                                            <ThemedText
+                                                style={[
+                                                    styles.chipText,
+                                                    {
+                                                        color:
+                                                            listing.currentAreaType === areaType ? '#FFFFFF' : text,
+                                                    },
+                                                ]}
+                                            >
+                                                {areaType}
+                                            </ThemedText>
+                                        </Pressable>
+                                    ))}
+                                </ScrollView>
+                            </View>
+
                             {/* Institution */}
                             <View style={styles.fieldGroup}>
                                 <ThemedText style={styles.label}>Institution Name</ThemedText>
@@ -486,6 +593,23 @@ export default function ProfileSetupScreen({ onComplete }: ProfileSetupProps) {
                                         setListing({ ...listing, currentInstitution: text })
                                     }
                                     placeholder="e.g., Lusaka General Hospital"
+                                    placeholderTextColor={`${text}50`}
+                                />
+                            </View>
+
+                            {/* Job Title */}
+                            <View style={styles.fieldGroup}>
+                                <ThemedText style={styles.label}>Job Title *</ThemedText>
+                                <TextInput
+                                    style={[
+                                        styles.input,
+                                        { backgroundColor: inputBg, color: text, borderColor: border },
+                                    ]}
+                                    value={listing.jobTitle}
+                                    onChangeText={(text) =>
+                                        setListing({ ...listing, jobTitle: text })
+                                    }
+                                    placeholder="e.g., Senior Nurse, Teacher, Officer"
                                     placeholderTextColor={`${text}50`}
                                 />
                             </View>
@@ -622,7 +746,7 @@ export default function ProfileSetupScreen({ onComplete }: ProfileSetupProps) {
                                     {DISTRICTS.map((district) => {
                                         const isSelected = listing.desiredDistrict === district;
                                         const isOtherSelected = district === 'Other' && listing.desiredDistrict && !DISTRICTS.includes(listing.desiredDistrict);
-                                        
+
                                         return (
                                             <Pressable
                                                 key={district}
@@ -665,6 +789,47 @@ export default function ProfileSetupScreen({ onComplete }: ProfileSetupProps) {
                                             </Pressable>
                                         );
                                     })}
+                                </ScrollView>
+                            </View>
+
+                            {/* Desired Area Type */}
+                            <View style={styles.fieldGroup}>
+                                <ThemedText style={styles.label}>Desired Area Type</ThemedText>
+                                <ScrollView
+                                    horizontal
+                                    showsHorizontalScrollIndicator={false}
+                                    contentContainerStyle={styles.chipsContainer}
+                                >
+                                    {AREA_TYPES.map((areaType) => (
+                                        <Pressable
+                                            key={areaType}
+                                            onPress={() =>
+                                                setListing({ ...listing, desiredAreaType: areaType })
+                                            }
+                                            style={({ pressed }) => [
+                                                styles.chip,
+                                                {
+                                                    backgroundColor:
+                                                        listing.desiredAreaType === areaType ? tint : cardBg,
+                                                    borderColor:
+                                                        listing.desiredAreaType === areaType ? tint : border,
+                                                    opacity: pressed ? 0.7 : 1,
+                                                },
+                                            ]}
+                                        >
+                                            <ThemedText
+                                                style={[
+                                                    styles.chipText,
+                                                    {
+                                                        color:
+                                                            listing.desiredAreaType === areaType ? '#FFFFFF' : text,
+                                                    },
+                                                ]}
+                                            >
+                                                {areaType}
+                                            </ThemedText>
+                                        </Pressable>
+                                    ))}
                                 </ScrollView>
                             </View>
                         </View>
@@ -723,7 +888,7 @@ export default function ProfileSetupScreen({ onComplete }: ProfileSetupProps) {
                                 </View>
 
                                 <View style={styles.imagesContainer}>
-                                    {listing.images.map((uri, index) => (
+                                    {selectedImages.map((uri, index) => (
                                         <View key={index} style={styles.imageWrapper}>
                                             <Image source={{ uri }} style={styles.image} />
                                             <Pressable
@@ -735,7 +900,7 @@ export default function ProfileSetupScreen({ onComplete }: ProfileSetupProps) {
                                         </View>
                                     ))}
 
-                                    {listing.images.length < 4 && (
+                                    {selectedImages.length < 4 && (
                                         <Pressable
                                             onPress={handleImagePick}
                                             style={[

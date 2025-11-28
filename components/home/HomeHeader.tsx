@@ -1,9 +1,9 @@
-import React from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
-import { Feather } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { ThemedText } from '@/components/themed-text';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { Feather } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import React from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 export type HomeHeaderProps = {
   userName: string;
@@ -12,11 +12,13 @@ export type HomeHeaderProps = {
   onPressChat?: () => void;
   onPressNotifications?: () => void;
   hasNotifications?: boolean;
+  notificationCount?: number;
 };
 
-export function HomeHeader({ userName, email, avatarUrl, onPressChat, onPressNotifications, hasNotifications }: HomeHeaderProps) {
+export function HomeHeader({ userName, email, avatarUrl, onPressChat, onPressNotifications, hasNotifications, notificationCount }: HomeHeaderProps) {
   const text = useThemeColor({}, 'text');
   const bg = useThemeColor({}, 'background');
+  const tint = useThemeColor({}, 'tint');
   const border = `${text}20`;
   const cardBg = `${text}0A`;
 
@@ -34,7 +36,13 @@ export function HomeHeader({ userName, email, avatarUrl, onPressChat, onPressNot
           <Feather name="message-circle" size={20} color={text} />
         </Pressable>
         <Pressable style={[styles.iconButton, { backgroundColor: cardBg }]} onPress={onPressNotifications}>
-          {hasNotifications ? <View style={styles.notificationDot} /> : null}
+          {hasNotifications && notificationCount && notificationCount > 0 ? (
+            <View style={[styles.notificationBadge, { backgroundColor: tint }]}>
+              <ThemedText style={styles.badgeText}>
+                {notificationCount > 99 ? '99+' : notificationCount}
+              </ThemedText>
+            </View>
+          ) : null}
           <Feather name="bell" size={20} color={text} />
         </Pressable>
       </View>
@@ -85,14 +93,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
   },
-  notificationDot: {
+  notificationBadge: {
     position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#ef4444',
+    top: -2,
+    right: -2,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
     zIndex: 1,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

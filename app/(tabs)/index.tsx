@@ -10,11 +10,11 @@ import { ThemedView } from "@/components/themed-view";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { supabase } from "@/lib/supabase";
 import { Feather } from "@expo/vector-icons";
-import { Redirect } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
+import { Redirect, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
 type User = {
   email: string;
   user_metadata: {
@@ -32,6 +32,7 @@ type Ministry = {
 type Swap = {
   id: string;
   posterName: string;
+  role: string;
   currentMinistry: string;
   desiredMinistry: string;
   currentLocation: string;
@@ -54,7 +55,8 @@ const MOCK_SWAPS: Swap[] = [
   {
     id: "1",
     posterName: "John Banda",
-    currentMinistry: "Health",
+    role: "Teacher",
+    currentMinistry: "Ministry of Health",
     desiredMinistry: "Education",
     currentLocation: "Lusaka",
     desiredLocation: "Ndola",
@@ -63,7 +65,8 @@ const MOCK_SWAPS: Swap[] = [
   {
     id: "2",
     posterName: "Mary Phiri",
-    currentMinistry: "Finance",
+    role: "Nurse",
+    currentMinistry: "Ministry of Finance",
     desiredMinistry: "Agriculture",
     currentLocation: "Kitwe",
     desiredLocation: "Chipata",
@@ -72,13 +75,43 @@ const MOCK_SWAPS: Swap[] = [
   {
     id: "3",
     posterName: "Peter Mwansa",
-    currentMinistry: "Education",
+    role: "Officer",
+    currentMinistry: "Ministry of Education",
     desiredMinistry: "Health",
     currentLocation: "Ndola",
     desiredLocation: "Lusaka",
     postedDate: "1 week ago",
   },
+  {
+    id: "4",
+    posterName: "Sarah Chibwe",
+    role: "Inspector",
+    currentMinistry: "Ministry of Agriculture",
+    desiredMinistry: "Finance",
+    currentLocation: "Livingstone",
+    desiredLocation: "Kitwe",
+    postedDate: "3 days ago",
+  },
+  {
+    id: "5",
+    posterName: "David Moyo",
+    role: "Technician",
+    currentMinistry: "Ministry of Health",
+    desiredMinistry: "Education",
+    currentLocation: "Kasama",
+    desiredLocation: "Lusaka",
+    postedDate: "4 days ago",
+  },
 ];
+
+const EXACT_MATCHES: Swap[] = MOCK_SWAPS.slice(0, 5);
+const RECOMMENDATIONS: Swap[] = MOCK_SWAPS.slice(0, 5);
+
+const getAvatarUrl = (posterName: string) => {
+  const firstName = posterName.split(' ')[0];
+  const initials = firstName + '.';
+  return `https://api.dicebear.com/7.x/initials/png?seed=${encodeURIComponent(initials)}&backgroundColor=random&bold=true`;
+};
 
 const handleCreateSwap = () => {
   console.log('Navigate to create swap');
@@ -90,11 +123,19 @@ const handleViewMySwaps = () => {
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const bg = useThemeColor({}, "background");
   const text = useThemeColor({}, "text");
   const tint = useThemeColor({}, "tint");
   const border = `${text}20`;
   const cardBg = `${text}0A`;
+
+  const handleSwapCardPress = (swapId: string, posterName: string) => {
+    router.push({
+      pathname: '/swap-details',
+      params: { swapId, posterName }
+    });
+  };
 
   const [user, setUser] = useState<User | null>(null);
   const [selectedMinistry, setSelectedMinistry] = useState("all");
@@ -103,29 +144,51 @@ export default function HomeScreen() {
   const [filterTo, setFilterTo] = useState("Any Location");
   const [isLoading, setIsLoading] = useState(true);
   const [hasCompletedProfile, setHasCompletedProfile] = useState<boolean | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+
 
   useEffect(() => {
     checkProfileStatus();
   }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      loadUnreadNotificationCount();
+    }, [])
+  );
+
+  const loadUnreadNotificationCount = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { count, error } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .is('read_at', null);
+
+      if (error) throw error;
+      setUnreadNotificationCount(count || 0);
+    } catch (error) {
+      console.error('Error loading unread notification count:', error);
+    }
+  };
 
   const checkProfileStatus = async () => {
     try {
       const { data } = await supabase.auth.getUser();
       if (data?.user) {
         setUser(data.user as any);
-        
-        // TODO: Replace with actual database check
-        // Option 1: Check user metadata
-        const profileCompleted = data.user.user_metadata?.profile_completed ?? false;
-        
-        // Option 2: Check profiles table (recommended)
-        // const { data: profileData } = await supabase
-        //   .from('profiles')
-        //   .select('profile_completed')
-        //   .eq('id', data.user.id)
-        //   .single();
-        // const profileCompleted = profileData?.profile_completed ?? false;
-        
+
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('profile_completed')
+          .eq('user_id', data.user.id)
+          .single();
+        const profileCompleted = profileData?.profile_completed ?? false;
+
         setHasCompletedProfile(profileCompleted);
       }
     } catch (error) {
@@ -133,6 +196,20 @@ export default function HomeScreen() {
       setHasCompletedProfile(false);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      // Simulate refresh delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+      // Refresh profile status and swaps data
+      await checkProfileStatus();
+    } catch (error) {
+      console.error('Error refreshing:', error);
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -167,12 +244,23 @@ export default function HomeScreen() {
         userName={userName}
         email={user?.email || ""}
         avatarUrl={avatarUrl}
-        onPressChat={() => { }}
-        onPressNotifications={() => { }}
-        hasNotifications
+        onPressChat={() => router.push('/messages')}
+        onPressNotifications={() => router.push('/notifications')}
+        hasNotifications={unreadNotificationCount > 0}
+        notificationCount={unreadNotificationCount}
       />
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor={tint}
+          />
+        }
+      >
         {/* Search Bar */}
         <SearchBar
           value={searchQuery}
@@ -201,37 +289,70 @@ export default function HomeScreen() {
           onSelect={setSelectedMinistry}
         />
 
-        {/* Swaps List */}
+        {/* Exact Matches Section */}
         <View style={styles.swapsSection}>
           <View style={styles.swapsSectionHeader}>
-            <ThemedText style={styles.sectionTitle}>Available Swaps</ThemedText>
+            <View>
+              <ThemedText style={styles.sectionTitle}>Exact Matches</ThemedText>
+              <ThemedText style={[styles.sectionSubtitle, { color: `${text}77` }]}>
+                Perfect swap opportunities
+              </ThemedText>
+            </View>
             <Pressable
-              style={({ pressed }) => [
-                styles.filterButton,
-                {
-                  borderColor: border,
-                  backgroundColor: pressed ? `${tint}15` : 'transparent',
-                  opacity: pressed ? 0.8 : 1,
-                }
-              ]}
+              style={({ pressed }) => [{
+                opacity: pressed ? 0.7 : 1,
+              }]}
             >
-              <Feather name="sliders" size={16} color={tint} />
+              <Feather name="arrow-right" size={18} color={tint} />
             </Pressable>
           </View>
-          {MOCK_SWAPS.map((swap) => (
+          {EXACT_MATCHES.map((swap) => (
             <SwapCard
               key={swap.id}
               id={swap.id}
               posterName={swap.posterName}
+              role={swap.role}
               currentMinistry={swap.currentMinistry}
               desiredMinistry={swap.desiredMinistry}
               currentLocation={swap.currentLocation}
               desiredLocation={swap.desiredLocation}
               postedDate={swap.postedDate}
-              avatarUri={`https://api.dicebear.com/7.x/initials/png?seed=${encodeURIComponent(
-                swap.posterName
-              )}`}
-              onPress={() => { }}
+              avatarUri={getAvatarUrl(swap.posterName)}
+              onPress={() => handleSwapCardPress(swap.id, swap.posterName)}
+            />
+          ))}
+        </View>
+
+        {/* Recommendations Section */}
+        <View style={styles.swapsSection}>
+          <View style={styles.swapsSectionHeader}>
+            <View>
+              <ThemedText style={styles.sectionTitle}>Recommended</ThemedText>
+              <ThemedText style={[styles.sectionSubtitle, { color: `${text}77` }]}>
+                Suggested by our AI matching algorithm
+              </ThemedText>
+            </View>
+            <Pressable
+              style={({ pressed }) => [{
+                opacity: pressed ? 0.7 : 1,
+              }]}
+            >
+              <Feather name="arrow-right" size={18} color={tint} />
+            </Pressable>
+          </View>
+          {RECOMMENDATIONS.map((swap) => (
+            <SwapCard
+              key={swap.id}
+              id={swap.id}
+              posterName={swap.posterName}
+              role={swap.role}
+              currentMinistry={swap.currentMinistry}
+              desiredMinistry={swap.desiredMinistry}
+              currentLocation={swap.currentLocation}
+              desiredLocation={swap.desiredLocation}
+              postedDate={swap.postedDate}
+              avatarUri={getAvatarUrl(swap.posterName)}
+              onPress={() => handleSwapCardPress(swap.id, swap.posterName)}
             />
           ))}
         </View>
@@ -260,6 +381,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   sectionTitle: { fontSize: 18, fontWeight: "700" },
+  sectionSubtitle: { fontSize: 12, fontWeight: "500", marginTop: 2 },
   filterButton: {
     paddingHorizontal: 12,
     paddingVertical: 8,
