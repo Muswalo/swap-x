@@ -4,11 +4,35 @@ import { SwapDetailsScreenSkeleton } from '@/components/swap/SwapDetailsScreenSk
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { messagingUtils } from '@/lib/messaging.utils';
+import { notifySwapInterest } from '@/lib/notifications.utils';
 import { supabase } from '@/lib/supabase';
 import { Feather } from '@expo/vector-icons';
+
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
+
+// Payment components and utilities
 import {
+    ContactDetailsView,
+    ContactOptionsModal,
+    MobileMoneyModal,
+    PaymentModal,
+} from '@/components/payment';
+import type { ContactDetails, PaymentOption } from '@/lib/payment.types';
+import {
+    checkContactAccess,
+    checkSubscriptionStatus,
+    getUserViewBalance,
+    grantContactAccess,
+    handlePackagePurchase,
+    handleSubscriptionPurchase,
+    processPayment,
+    updateViewBalance,
+} from '@/lib/payment.utils';
+
+import {
+    ActivityIndicator,
     Alert,
     Animated,
     Dimensions,
@@ -16,7 +40,7 @@ import {
     Pressable,
     ScrollView,
     StyleSheet,
-    View,
+    View
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -24,6 +48,7 @@ const { width } = Dimensions.get('window');
 
 type SwapDetails = {
     id: string;
+    userId: string;
     posterName: string;
     jobTitle: string;
     currentMinistry: string;
@@ -41,6 +66,7 @@ type SwapDetails = {
     postedDate: string;
     avatarUri: string;
     role: string;
+    isOwnSwap: boolean;
 };
 
 export default function SwapDetailsScreen() {
@@ -59,11 +85,32 @@ export default function SwapDetailsScreen() {
     const [swap, setSwap] = useState<SwapDetails | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
+    const [isExpressingInterest, setIsExpressingInterest] = useState(false);
+    const [hasExpressedInterest, setHasExpressedInterest] = useState(false);
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+    const [interestCount, setInterestCount] = useState(0);
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
+    // Payment flow state management (Requirements: 1.1)
+    const [showContactOptionsModal, setShowContactOptionsModal] = useState(false);
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [showMobileMoneyModal, setShowMobileMoneyModal] = useState(false);
+    const [showContactDetailsModal, setShowContactDetailsModal] = useState(false);
+    const [selectedPaymentOption, setSelectedPaymentOption] = useState<PaymentOption | null>(null);
+    const [isPaymentProcessing, setIsPaymentProcessing] = useState(false);
+    const [paymentError, setPaymentError] = useState<string | null>(null);
+    const [viewsRemaining, setViewsRemaining] = useState(0);
+    const [contactDetails, setContactDetails] = useState<ContactDetails>({ phoneNumber: null, email: null });
+
     useEffect(() => {
+        loadCurrentUser();
         loadSwapDetails();
     }, [swapId]);
+
+    const loadCurrentUser = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        setCurrentUserId(user?.id || null);
+    };
 
     useEffect(() => {
         if (!isLoading && swap) {
@@ -80,6 +127,10 @@ export default function SwapDetailsScreen() {
             setIsLoading(true);
             if (!swapId) return;
 
+            // Get current user
+            const { data: { user } } = await supabase.auth.getUser();
+            const userId = user?.id;
+
             // Fetch swap data
             const { data: swapData, error: swapError } = await supabase
                 .from('swaps')
@@ -93,10 +144,33 @@ export default function SwapDetailsScreen() {
             const { data: profileData, error: profileError } = await supabase
                 .from('profiles')
                 .select('first_name, last_name')
-                .eq('user_id', swapData.user_id)
+                .eq('user_id', swapData.user_id || '')
                 .single();
 
             if (profileError) console.warn('Profile data not found:', profileError);
+            
+            // Check if user has already expressed interest
+            if (userId) {
+                const { data: interestData } = await supabase
+                    .from('swap_interests')
+                    .select('id')
+                    .eq('swap_id', swapId)
+                    .eq('interested_user_id', userId)
+                    .single();
+                
+                setHasExpressedInterest(!!interestData);
+            }
+
+            // Get interest count for own swaps
+            if (userId === swapData.user_id) {
+                const { count } = await supabase
+                    .from('swap_interests')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('swap_id', swapId);
+                
+                setInterestCount(count || 0);
+            }
+
             // Format the swap details
             const firstName = profileData?.first_name || 'User';
             const lastName = profileData?.last_name || '';
@@ -104,7 +178,7 @@ export default function SwapDetailsScreen() {
             const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(posterName)}&background=random&size=128&bold=true`;
 
             // Format the posted date
-            const createdDate = new Date(swapData.created_at);
+            const createdDate = new Date(swapData.created_at || new Date());
             const now = new Date();
             const diffMs = now.getTime() - createdDate.getTime();
             const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
@@ -117,8 +191,11 @@ export default function SwapDetailsScreen() {
             else if (diffDays > 0 && diffDays < 7) postedDate = `${diffDays}d ago`;
             else postedDate = createdDate.toLocaleDateString();
 
+            const isOwnSwap = userId === swapData.user_id;
+
             const formattedSwap: SwapDetails = {
                 id: swapData.id,
+                userId: swapData.user_id || '',
                 posterName,
                 jobTitle: swapData.job_title || 'Staff Member',
                 currentMinistry: swapData.current_ministry,
@@ -136,6 +213,7 @@ export default function SwapDetailsScreen() {
                 postedDate,
                 avatarUri: avatarUrl,
                 role: swapData.job_title || 'Staff Member',
+                isOwnSwap,
             };
 
             setSwap(formattedSwap);
@@ -147,16 +225,384 @@ export default function SwapDetailsScreen() {
     };
 
 
-    const handleContactPress = () => {
+    /**
+     * Handle Contact button press - opens ContactOptionsModal
+     * Requirements: 1.1, 1.5
+     */
+    const handleContactPress = async () => {
+        if (!swap || !currentUserId) return;
+
+        // If own swap, show contact details directly (Requirement 1.5)
+        if (swap.isOwnSwap) {
+            await loadAndShowContactDetails();
+            return;
+        }
+
+        // Otherwise open ContactOptionsModal (Requirement 1.1)
+        setShowContactOptionsModal(true);
+    };
+
+    /**
+     * Handle "Message in App" option selection
+     * Requirements: 1.2
+     */
+    const handleMessageInApp = async () => {
+        if (!swap || !currentUserId) return;
+
+        setShowContactOptionsModal(false);
+        const firstName = swap.posterName.split(' ')[0];
+
+        try {
+            // Create or get existing conversation
+            const conversationId = await messagingUtils.startConversation(
+                currentUserId,
+                swap.userId,
+                swap.id
+            );
+
+            if (!conversationId) {
+                throw new Error('Failed to create conversation');
+            }
+
+            // Navigate to chat screen
+            router.push({
+                pathname: '/chat',
+                params: {
+                    conversationId,
+                    otherUserId: swap.userId,
+                    otherUserName: firstName,
+                },
+            });
+        } catch (error) {
+            console.error('Error creating conversation:', error);
+            Alert.alert('Error', 'Failed to start conversation. Please try again.');
+        }
+    };
+
+    /**
+     * Load contact details from the swap poster's profile
+     */
+    const loadAndShowContactDetails = async () => {
+        if (!swap) return;
+
+        try {
+            const { data: profileData, error } = await supabase
+                .from('profiles')
+                .select('phone_number, email')
+                .eq('user_id', swap.userId)
+                .single();
+
+            if (error) {
+                console.error('Error loading contact details:', error);
+                setContactDetails({ phoneNumber: null, email: null });
+            } else {
+                setContactDetails({
+                    phoneNumber: profileData?.phone_number || null,
+                    email: profileData?.email || null,
+                });
+            }
+
+            setShowContactDetailsModal(true);
+        } catch (error) {
+            console.error('Error loading contact details:', error);
+            Alert.alert('Error', 'Failed to load contact details. Please try again.');
+        }
+    };
+
+    /**
+     * Handle "View Contact Details" option selection
+     * Requirements: 1.3, 1.4, 2.4
+     */
+    const handleViewContactDetails = async () => {
+        if (!swap || !currentUserId) return;
+
+        setShowContactOptionsModal(false);
+
+        try {
+            // Check if user has active subscription (Requirement 2.4)
+            const subscriptionStatus = await checkSubscriptionStatus(currentUserId);
+            if (subscriptionStatus.isActive) {
+                // Grant access for subscription users and show contact details
+                await grantContactAccess(currentUserId, swap.id, 'subscription');
+                await loadAndShowContactDetails();
+                return;
+            }
+
+            // Check if user already has access (Requirement 1.3)
+            const hasAccess = await checkContactAccess(currentUserId, swap.id);
+            if (hasAccess) {
+                await loadAndShowContactDetails();
+                return;
+            }
+
+            // No access - load view balance and show payment modal (Requirement 1.4)
+            const balance = await getUserViewBalance(currentUserId);
+            setViewsRemaining(balance);
+            setShowPaymentModal(true);
+        } catch (error) {
+            console.error('Error checking contact access:', error);
+            Alert.alert('Error', 'Failed to check access. Please try again.');
+        }
+    };
+
+    /**
+     * Handle payment option selection
+     * Requirements: 3.1
+     */
+    const handlePaymentOptionSelect = (option: PaymentOption) => {
+        setSelectedPaymentOption(option);
+        setPaymentError(null);
+        setShowPaymentModal(false);
+        setShowMobileMoneyModal(true);
+    };
+
+    /**
+     * Handle using view balance instead of paying
+     * Requirements: 5.2, 5.3
+     */
+    const handleUseViewBalance = async () => {
+        if (!swap || !currentUserId || viewsRemaining <= 0) return;
+
+        try {
+            // Decrement balance
+            const success = await updateViewBalance(currentUserId, 1);
+            if (!success) {
+                Alert.alert('Error', 'Failed to use view balance. Please try again.');
+                return;
+            }
+
+            // Grant access
+            await grantContactAccess(currentUserId, swap.id, 'package');
+
+            // Update local state and show contact details
+            setViewsRemaining(prev => prev - 1);
+            setShowPaymentModal(false);
+            await loadAndShowContactDetails();
+        } catch (error) {
+            console.error('Error using view balance:', error);
+            Alert.alert('Error', 'Failed to use view balance. Please try again.');
+        }
+    };
+
+    /**
+     * Handle payment submission
+     * Requirements: 3.3, 3.5, 3.6
+     */
+    const handlePaymentSubmit = async (phoneNumber: string) => {
+        if (!swap || !currentUserId || !selectedPaymentOption) return;
+
+        setIsPaymentProcessing(true);
+        setPaymentError(null);
+
+        try {
+            let result;
+
+            if (selectedPaymentOption.type === 'subscription') {
+                // Handle subscription purchase
+                result = await handleSubscriptionPurchase(currentUserId, phoneNumber);
+            } else if (['package_3', 'package_6', 'package_10'].includes(selectedPaymentOption.type)) {
+                // Handle package purchase
+                result = await handlePackagePurchase(
+                    currentUserId,
+                    phoneNumber,
+                    selectedPaymentOption.type as 'package_3' | 'package_6' | 'package_10'
+                );
+            } else {
+                // Handle single payment
+                result = await processPayment(
+                    currentUserId,
+                    selectedPaymentOption.amount,
+                    phoneNumber,
+                    selectedPaymentOption.type
+                );
+            }
+
+            if (!result.success) {
+                // Payment failed - show error and allow retry (Requirement 3.6)
+                setPaymentError(result.error || 'Payment failed. Please try again.');
+                setIsPaymentProcessing(false);
+                return;
+            }
+
+            // Payment succeeded - grant access (Requirement 3.5)
+            const paymentMethod = selectedPaymentOption.type === 'subscription' 
+                ? 'subscription' 
+                : selectedPaymentOption.type === 'single' 
+                    ? 'single' 
+                    : 'package';
+            
+            await grantContactAccess(currentUserId, swap.id, paymentMethod);
+
+            // Close modal and show contact details (Requirement 3.5)
+            setShowMobileMoneyModal(false);
+            setSelectedPaymentOption(null);
+            setIsPaymentProcessing(false);
+            
+            await loadAndShowContactDetails();
+        } catch (error) {
+            console.error('Error processing payment:', error);
+            setPaymentError('An unexpected error occurred. Please try again.');
+            setIsPaymentProcessing(false);
+        }
+    };
+
+    /**
+     * Handle copy to clipboard for contact details
+     * Note: Using Alert as a fallback since expo-clipboard may not be installed
+     */
+    const handleCopyToClipboard = async (text: string) => {
+        // For now, just log the copy action
+        // In production, install expo-clipboard and use: await Clipboard.setStringAsync(text);
+        console.log('Copied to clipboard:', text);
+    };
+
+    const handleExpressInterest = async () => {
+        if (!swap || !currentUserId || hasExpressedInterest) return;
+
         Alert.alert(
-            `Contact ${firstName}`,
-            `Start a conversation with ${firstName} about this swap opportunity?`,
+            'Express Interest',
+            'Would you like to express interest in this swap? The poster will be notified.',
             [
                 { text: 'Cancel', style: 'cancel' },
                 {
-                    text: 'Send Message',
-                    onPress: () => {
-                        console.log('Navigate to chat with');
+                    text: 'Express Interest',
+                    onPress: async () => {
+                        try {
+                            setIsExpressingInterest(true);
+
+                            // Insert interest record
+                            const { error: interestError } = await supabase
+                                .from('swap_interests')
+                                .insert({
+                                    swap_id: swap.id,
+                                    interested_user_id: currentUserId,
+                                    status: 'pending',
+                                });
+
+                            if (interestError) throw interestError;
+
+                            // Send notification to swap owner
+                            const { data: profile } = await supabase
+                                .from('profiles')
+                                .select('first_name, last_name')
+                                .eq('user_id', currentUserId)
+                                .single();
+
+                            const userName = profile 
+                                ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Someone'
+                                : 'Someone';
+
+                            await notifySwapInterest(swap.userId, currentUserId, userName, swap.id);
+
+                            setHasExpressedInterest(true);
+                            Alert.alert('Success', 'Your interest has been expressed!');
+                        } catch (error) {
+                            console.error('Error expressing interest:', error);
+                            Alert.alert('Error', 'Failed to express interest. Please try again.');
+                        } finally {
+                            setIsExpressingInterest(false);
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
+    const handleManageSwap = () => {
+        if (!swap) return;
+
+        const actions = [
+            {
+                text: `View Interests (${interestCount})`,
+                onPress: () => router.push({
+                    pathname: '/swap-interests',
+                    params: { swapId: swap.id }
+                }),
+            },
+            {
+                text: 'Edit',
+                onPress: () => router.push({
+                    pathname: '/edit-swap',
+                    params: { swapId: swap.id }
+                }),
+            },
+            {
+                text: 'Close Swap',
+                onPress: () => handleCloseSwap(),
+            },
+            {
+                text: 'Delete',
+                style: 'destructive' as const,
+                onPress: () => handleDeleteSwap(),
+            },
+            {
+                text: 'Cancel',
+                style: 'cancel' as const,
+            },
+        ];
+
+        Alert.alert('Manage Swap', 'What would you like to do with this swap?', actions);
+    };
+
+    const handleCloseSwap = async () => {
+        if (!swap) return;
+
+        Alert.alert(
+            'Close Swap',
+            'Mark this swap as completed? It will be removed from search results.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Close',
+                    onPress: async () => {
+                        try {
+                            const { error } = await supabase
+                                .from('swaps')
+                                .update({ status: 'completed', updated_at: new Date().toISOString() })
+                                .eq('id', swap.id);
+
+                            if (error) throw error;
+
+                            Alert.alert('Success', 'Swap has been closed', [
+                                { text: 'OK', onPress: () => router.back() }
+                            ]);
+                        } catch (error) {
+                            console.error('Error closing swap:', error);
+                            Alert.alert('Error', 'Failed to close swap. Please try again.');
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
+    const handleDeleteSwap = async () => {
+        if (!swap) return;
+
+        Alert.alert(
+            'Delete Swap',
+            'Are you sure you want to delete this swap? This action cannot be undone.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            const { error } = await supabase
+                                .from('swaps')
+                                .delete()
+                                .eq('id', swap.id);
+
+                            if (error) throw error;
+
+                            Alert.alert('Success', 'Swap has been deleted', [
+                                { text: 'OK', onPress: () => router.back() }
+                            ]);
+                        } catch (error) {
+                            console.error('Error deleting swap:', error);
+                            Alert.alert('Error', 'Failed to delete swap. Please try again.');
+                        }
                     },
                 },
             ]
@@ -201,8 +647,17 @@ export default function SwapDetailsScreen() {
             <ScreenHeader
               title="Swap Details"
               showBack={true}
-              rightIcon="share"
-              onRightPress={() => console.log('Share pressed')}
+              rightIcon={swap.isOwnSwap && interestCount > 0 ? "more" : "share"}
+              onRightPress={() => {
+                if (swap.isOwnSwap && interestCount > 0) {
+                  router.push({
+                    pathname: '/swap-interests',
+                    params: { swapId: swap.id }
+                  });
+                } else {
+                  console.log('Share pressed');
+                }
+              }}
             />
 
             <ScrollView
@@ -449,24 +904,120 @@ export default function SwapDetailsScreen() {
                 )}
             </ScrollView>
 
-            {/* Contact Button */}
+            {/* Action Buttons */}
             <View style={[styles.footer, { borderTopColor: border }]}>
-                <Pressable
-                    onPress={handleContactPress}
-                    style={({ pressed }) => [
-                        styles.contactButton,
-                        {
-                            backgroundColor: tint,
-                            opacity: pressed ? 0.85 : 1,
-                        },
-                    ]}
-                >
-                    <Feather name="message-circle" size={18} color="#FFFFFF" />
-                    <ThemedText style={styles.contactButtonText}>
-                        Contact {firstName}
-                    </ThemedText>
-                </Pressable>
+                {swap.isOwnSwap ? (
+                    // Show manage button for own swaps
+                    <Pressable
+                        onPress={handleManageSwap}
+                        style={({ pressed }) => [
+                            styles.contactButton,
+                            {
+                                backgroundColor: tint,
+                                opacity: pressed ? 0.85 : 1,
+                            },
+                        ]}
+                    >
+                        <Feather name="settings" size={18} color="#FFFFFF" />
+                        <ThemedText style={styles.contactButtonText}>
+                            Manage Swap
+                        </ThemedText>
+                    </Pressable>
+                ) : (
+                    // Show contact and interest buttons for other users' swaps
+                    <View style={styles.actionButtonsRow}>
+                        <Pressable
+                            onPress={handleExpressInterest}
+                            disabled={hasExpressedInterest || isExpressingInterest}
+                            style={({ pressed }) => [
+                                styles.interestButton,
+                                {
+                                    backgroundColor: hasExpressedInterest ? `${text}20` : `${tint}15`,
+                                    borderColor: hasExpressedInterest ? `${text}30` : tint,
+                                    opacity: pressed ? 0.7 : 1,
+                                },
+                            ]}
+                        >
+                            {isExpressingInterest ? (
+                                <ActivityIndicator size="small" color={tint} />
+                            ) : (
+                                <>
+                                    <Feather 
+                                        name={hasExpressedInterest ? "check" : "heart"} 
+                                        size={18} 
+                                        color={hasExpressedInterest ? text : tint} 
+                                    />
+                                    <ThemedText style={[
+                                        styles.interestButtonText,
+                                        { color: hasExpressedInterest ? text : tint }
+                                    ]}>
+                                        {hasExpressedInterest ? 'Interested' : 'Express Interest'}
+                                    </ThemedText>
+                                </>
+                            )}
+                        </Pressable>
+                        <Pressable
+                            onPress={handleContactPress}
+                            style={({ pressed }) => [
+                                styles.contactButton,
+                                styles.flexButton,
+                                {
+                                    backgroundColor: tint,
+                                    opacity: pressed ? 0.85 : 1,
+                                },
+                            ]}
+                        >
+                            <Feather name="message-circle" size={18} color="#FFFFFF" />
+                            <ThemedText style={styles.contactButtonText}>
+                                Contact {firstName}
+                            </ThemedText>
+                        </Pressable>
+                    </View>
+                )}
             </View>
+
+            {/* Payment Flow Modals */}
+            {/* Contact Options Modal - Requirements: 1.1, 1.2 */}
+            <ContactOptionsModal
+                isVisible={showContactOptionsModal}
+                onClose={() => setShowContactOptionsModal(false)}
+                onMessageInApp={handleMessageInApp}
+                onViewContactDetails={handleViewContactDetails}
+                posterName={firstName}
+            />
+
+            {/* Payment Modal - Requirements: 2.1, 2.2, 2.3, 2.5 */}
+            <PaymentModal
+                isVisible={showPaymentModal}
+                onClose={() => setShowPaymentModal(false)}
+                onSelectOption={handlePaymentOptionSelect}
+                onUseViewBalance={handleUseViewBalance}
+                viewsRemaining={viewsRemaining}
+            />
+
+            {/* Mobile Money Modal - Requirements: 3.1, 3.2, 3.4 */}
+            <MobileMoneyModal
+                isVisible={showMobileMoneyModal}
+                onClose={() => {
+                    setShowMobileMoneyModal(false);
+                    setSelectedPaymentOption(null);
+                    setPaymentError(null);
+                }}
+                onPay={handlePaymentSubmit}
+                amount={selectedPaymentOption?.amount || 0}
+                description={selectedPaymentOption?.description || ''}
+                isLoading={isPaymentProcessing}
+                error={paymentError}
+            />
+
+            {/* Contact Details View - Requirements: 1.3 */}
+            <ContactDetailsView
+                isVisible={showContactDetailsModal}
+                onClose={() => setShowContactDetailsModal(false)}
+                contactDetails={contactDetails}
+                posterName={firstName}
+                onCopyToClipboard={handleCopyToClipboard}
+            />
         </ThemedView>
         </SafeAreaView>
         </Animated.View>
@@ -692,6 +1243,10 @@ const styles = StyleSheet.create({
         borderTopWidth: 1,
         gap: 12,
     },
+    actionButtonsRow: {
+        flexDirection: 'row',
+        gap: 12,
+    },
     contactButton: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -699,6 +1254,23 @@ const styles = StyleSheet.create({
         gap: 10,
         paddingVertical: 14,
         borderRadius: 12,
+    },
+    flexButton: {
+        flex: 1,
+    },
+    interestButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        borderRadius: 12,
+        borderWidth: 1.5,
+    },
+    interestButtonText: {
+        fontSize: 15,
+        fontWeight: '700',
     },
     contactButtonText: {
         color: '#FFFFFF',

@@ -79,6 +79,7 @@ const MOCK_CONVERSATIONS: Conversation[] = [
 ];
 
 export default function MessagesScreen() {
+    console.log ("something")
     const insets = useSafeAreaInsets();
     const bg = useThemeColor({}, 'background');
     const text = useThemeColor({}, 'text');

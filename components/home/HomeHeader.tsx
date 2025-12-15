@@ -9,13 +9,14 @@ export type HomeHeaderProps = {
   userName: string;
   email?: string;
   avatarUrl: string;
+  onPressAvatar?: () => void;
   onPressChat?: () => void;
   onPressNotifications?: () => void;
   hasNotifications?: boolean;
   notificationCount?: number;
 };
 
-export function HomeHeader({ userName, email, avatarUrl, onPressChat, onPressNotifications, hasNotifications, notificationCount }: HomeHeaderProps) {
+export function HomeHeader({ userName, email, avatarUrl, onPressAvatar, onPressChat, onPressNotifications, hasNotifications, notificationCount }: HomeHeaderProps) {
   const text = useThemeColor({}, 'text');
   const bg = useThemeColor({}, 'background');
   const tint = useThemeColor({}, 'tint');
@@ -24,13 +25,21 @@ export function HomeHeader({ userName, email, avatarUrl, onPressChat, onPressNot
 
   return (
     <View style={[styles.header, { borderBottomColor: border, backgroundColor: bg }]}> 
-      <View style={styles.userSection}>
-        <Image source={{ uri: avatarUrl }} style={styles.avatar} />
-        <View style={styles.userInfo}>
-          <ThemedText style={styles.userName} numberOfLines={1}>{userName}</ThemedText>
-          <ThemedText style={[styles.userEmail, { color: `${text}99` }]} numberOfLines={1}>{email || ''}</ThemedText>
-        </View>
-      </View>
+      <Pressable 
+        style={styles.userSection} 
+        onPress={onPressAvatar}
+        android_ripple={{ color: `${text}10` }}
+      >
+        {({ pressed }) => (
+          <>
+            <Image source={{ uri: avatarUrl }} style={[styles.avatar, { opacity: pressed ? 0.7 : 1 }]} />
+            <View style={styles.userInfo}>
+              <ThemedText style={styles.userName} numberOfLines={1}>{userName}</ThemedText>
+              <ThemedText style={[styles.userEmail, { color: `${text}99` }]} numberOfLines={1}>{email || ''}</ThemedText>
+            </View>
+          </>
+        )}
+      </Pressable>
       <View style={styles.headerIcons}>
         <Pressable style={[styles.iconButton, { backgroundColor: cardBg }]} onPress={onPressChat}>
           <Feather name="message-circle" size={20} color={text} />

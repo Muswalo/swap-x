@@ -2,9 +2,9 @@ import React from 'react';
 import { Pressable, StyleSheet, ViewStyle } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { useThemeColor } from '@/hooks/use-theme-color';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useThemeColor } from '@/hooks/use-theme-color';
 
 export type AppButtonProps = {
   title: string;
@@ -13,6 +13,7 @@ export type AppButtonProps = {
   disabled?: boolean;
   variant?: 'primary' | 'ghost';
   style?: ViewStyle | ViewStyle[];
+  loading?: boolean;
 };
 
 export function AppButton({
@@ -22,18 +23,21 @@ export function AppButton({
   disabled,
   variant = 'primary',
   style,
+  loading = false,
 }: AppButtonProps) {
   const colorScheme = useColorScheme();
   const tint = useThemeColor({}, 'tint');
   const text = useThemeColor({}, 'text');
 
   const isPrimary = variant === 'primary';
+  const isDisabled = disabled || loading;
+  
   const containerStyle: any = [
     styles.base,
     isPrimary
       ? [{ backgroundColor: tint }]
       : [{ borderColor: `${tint}66`, borderWidth: 1, backgroundColor: 'transparent' }],
-    disabled ? { opacity: 0.4 } : null,
+    isDisabled ? { opacity: 0.4 } : null,
     style,
   ];
 
@@ -47,10 +51,14 @@ export function AppButton({
     <Pressable
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
-      disabled={disabled}
+      disabled={isDisabled}
       style={containerStyle}
     >
-      <ThemedText style={[styles.label, { color: labelColor }]}>{title}</ThemedText>
+      {loading ? (
+        <ActivityIndicator color={labelColor} />
+      ) : (
+        <ThemedText style={[styles.label, { color: labelColor }]}>{title}</ThemedText>
+      )}
     </Pressable>
   );
 }

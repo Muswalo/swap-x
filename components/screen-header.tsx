@@ -9,7 +9,7 @@ export type ScreenHeaderProps = {
   title: string;
   showBack?: boolean;
   onBackPress?: () => void;
-  rightIcon?: 'share' | 'settings' | 'more' | 'close';
+  rightIcon?: 'share' | 'settings' | 'more' | 'close' | 'edit-2';
   onRightPress?: () => void;
   subtitle?: string;
 };
@@ -42,6 +42,8 @@ export function ScreenHeader({
         return 'more-vertical';
       case 'close':
         return 'x';
+      case 'edit-2':
+        return 'edit-2';
       case 'share':
       default:
         return 'share-2';
@@ -73,18 +75,20 @@ export function ScreenHeader({
       </View>
 
       <View style={styles.rightSection}>
-        <Pressable
-          onPress={onRightPress}
-          style={({ pressed }) => [
-            styles.button,
-            {
-              opacity: pressed ? 0.7 : 1,
-              backgroundColor: `${text}10`,
-            },
-          ]}
-        >
-          <Feather name={getRightIconName() as any} size={20} color={text} />
-        </Pressable>
+        {onRightPress && (
+          <Pressable
+            onPress={onRightPress}
+            style={({ pressed }) => [
+              styles.button,
+              {
+                opacity: pressed ? 0.7 : 1,
+                backgroundColor: `${text}10`,
+              },
+            ]}
+          >
+            <Feather name={getRightIconName() as any} size={20} color={text} />
+          </Pressable>
+        )}
       </View>
     </View>
   );

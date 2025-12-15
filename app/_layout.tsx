@@ -3,6 +3,8 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
 
+import { ErrorBoundary } from "@/components/error-boundary";
+import { ShimmerProvider } from "@/components/shimmer-provider";
 import { SplashScreen } from '@/components/splash-screen';
 import { NotificationProvider } from "@/context/notifications-provider";
 import { OnboardingProvider, useOnboarding } from "@/context/onboarding-provider";
@@ -10,6 +12,7 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import { supabase } from '@/lib/supabase';
 import * as Notifications from "expo-notifications";
 import React, { useEffect, useState } from 'react';
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -51,51 +54,58 @@ function RootLayoutContent() {
   }, []);
 
   return (
-    <NotificationProvider>
-      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-        {isBooting ? (
-          <SplashScreen />
-        ) : (
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              animation: 'slide_from_right',
-              gestureEnabled: true,
-            }}
-          >
+    <ShimmerProvider>
+      <NotificationProvider>
+        <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+          {isBooting ? (
+            <SplashScreen />
+          ) : (
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                animation: 'slide_from_right',
+                gestureEnabled: true,
+              }}
+            >
 
-            {/* Onboarding screen */}
-            <Stack.Protected guard={!hasCompletedOnboarding}>
-              <Stack.Screen name="onboarding" />
-            </Stack.Protected>
+              {/* Onboarding screen */}
+              <Stack.Protected guard={!hasCompletedOnboarding}>
+                <Stack.Screen name="onboarding" />
+              </Stack.Protected>
 
-            {/* Auth screen */}
-            <Stack.Protected guard={hasCompletedOnboarding && !isLoggedIn}>
-              <Stack.Screen name="auth" />
-            </Stack.Protected>
+              {/* Auth screen */}
+              <Stack.Protected guard={hasCompletedOnboarding && !isLoggedIn}>
+                <Stack.Screen name="auth" />
+              </Stack.Protected>
 
-            {/* Main app */}
-            <Stack.Protected guard={isLoggedIn}>
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="profile-setup" options={{ headerShown: false }} />
-              <Stack.Screen name="swap-details" options={{ headerShown: false }} />
-              <Stack.Screen name="messages" options={{ headerShown: false }} />
-              <Stack.Screen name="notifications" options={{ headerShown: false }} />
-              <Stack.Screen name="modal" options={{ presentation: "modal", title: "Modal" }} />
-            </Stack.Protected>
-          </Stack>
-        )}
-        <StatusBar style="auto" />
-      </ThemeProvider>
-    </NotificationProvider>
+              {/* Main app */}
+              <Stack.Protected guard={isLoggedIn}>
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="profile-setup" options={{ headerShown: false }} />
+                <Stack.Screen name="swap-details" options={{ headerShown: false }} />
+                <Stack.Screen name="messages" options={{ headerShown: false }} />
+                <Stack.Screen name="chat" options={{ headerShown: false }} />
+                <Stack.Screen name="notifications" options={{ headerShown: false }} />
+                <Stack.Screen name="modal" options={{ presentation: "modal", title: "Modal" }} />
+              </Stack.Protected>
+            </Stack>
+          )}
+          <StatusBar style="auto" />
+        </ThemeProvider>
+      </NotificationProvider>
+    </ShimmerProvider>
   );
 }
 
 export default function RootLayout() {
   return (
-    // Update to true for production to persist onboarding state
-    <OnboardingProvider persist={false}>
-      <RootLayoutContent />
-    </OnboardingProvider>
+    <SafeAreaProvider>
+      <ErrorBoundary>
+        {/* Update to true for production to persist onboarding state */}
+        <OnboardingProvider persist={false}>
+          <RootLayoutContent />
+        </OnboardingProvider>
+      </ErrorBoundary>
+    </SafeAreaProvider>
   );
 }

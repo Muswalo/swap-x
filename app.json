@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "swap-x",
+    "name": "SwapX",
     "slug": "swap-x",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -8,8 +8,21 @@
     "scheme": "swapx",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "description": "SwapX - Government Employee Job Swap Platform. Find and arrange job location and ministry swaps with ease.",
+    "primaryColor": "#007AFF",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.muswalo.swapx",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSCameraUsageDescription": "SwapX needs access to your camera to take photos for your profile and swap listings.",
+        "NSPhotoLibraryUsageDescription": "SwapX needs access to your photo library to upload photos for your profile and swap listings.",
+        "NSPhotoLibraryAddUsageDescription": "SwapX needs permission to save photos to your library.",
+        "NSLocationWhenInUseUsageDescription": "SwapX uses your location to show nearby swap opportunities."
+      },
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +34,16 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.muswalo.swapx",
-      "googleServicesFile": "./google-services.json"
+      "versionCode": 1,
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "NOTIFICATIONS",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "output": "static",
