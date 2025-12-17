@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { BottomModal } from '@/components/bottom-modal';
 import { DistrictModal } from '@/components/district-modal';
@@ -79,7 +79,7 @@ export function PreferencesEditModal({
   return (
     <>
       <BottomModal isVisible={isVisible} onClose={handleCancel} heightPercent={70}>
-        <View style={styles.container}>
+        <ScrollView style={styles.container}>
           {/* Header */}
           <View style={styles.header}>
             <ThemedText style={styles.title}>Edit Preferences</ThemedText>
@@ -163,26 +163,26 @@ export function PreferencesEditModal({
               <Feather name="chevron-right" size={18} color={`${text}66`} />
             </Pressable>
           </View>
+        </ScrollView>
 
-          {/* Action Buttons */}
-          <View style={[styles.actions, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-            <Pressable
-              style={[styles.button, styles.cancelButton, { borderColor: border }]}
-              onPress={handleCancel}
-            >
-              <ThemedText style={[styles.buttonText, { color: text }]}>
-                Cancel
-              </ThemedText>
-            </Pressable>
-            <Pressable
-              style={[styles.button, styles.saveButton, { backgroundColor: tint }]}
-              onPress={handleSave}
-            >
-              <ThemedText style={[styles.buttonText, { color: '#FFFFFF' }]}>
-                Save Changes
-              </ThemedText>
-            </Pressable>
-          </View>
+        {/* Action Buttons */}
+        <View style={styles.actions}>
+          <Pressable
+            style={[styles.button, styles.cancelButton, { borderColor: border }]}
+            onPress={handleCancel}
+          >
+            <ThemedText style={[styles.buttonText, { color: text }]}>
+              Cancel
+            </ThemedText>
+          </Pressable>
+          <Pressable
+            style={[styles.button, styles.saveButton, { backgroundColor: tint }]}
+            onPress={handleSave}
+          >
+            <ThemedText style={[styles.buttonText, { color: '#FFFFFF' }]}>
+              Save Changes
+            </ThemedText>
+          </Pressable>
         </View>
       </BottomModal>
 
@@ -220,7 +220,6 @@ export function PreferencesEditModal({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingVertical: 12,
   },
   header: {
     marginBottom: 24,
@@ -268,8 +267,7 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 'auto',
-    paddingTop: 20,
+    marginVertical: 8,
   },
   button: {
     flex: 1,

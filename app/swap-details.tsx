@@ -947,12 +947,6 @@ export default function SwapDetailsScreen() {
                                         size={18} 
                                         color={hasExpressedInterest ? text : tint} 
                                     />
-                                    <ThemedText style={[
-                                        styles.interestButtonText,
-                                        { color: hasExpressedInterest ? text : tint }
-                                    ]}>
-                                        {hasExpressedInterest ? 'Interested' : 'Express Interest'}
-                                    </ThemedText>
                                 </>
                             )}
                         </Pressable>

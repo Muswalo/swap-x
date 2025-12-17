@@ -7,7 +7,7 @@ import {
     StyleSheet,
     View
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface BottomModalProps {
     isVisible: boolean;
@@ -26,8 +26,6 @@ export const BottomModal: React.FC<BottomModalProps> = ({
     heightPercent = 50,
     showHandle = true,
 }) => {
-    const insets = useSafeAreaInsets();
-    const modalHeight = (screenHeight * heightPercent) / 100;
 
     return (
         <Modal

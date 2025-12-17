@@ -13,13 +13,11 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
     Image,
-    KeyboardAvoidingView,
-    Platform,
     Pressable,
     ScrollView,
     StyleSheet,
     TextInput,
-    View,
+    View
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -335,11 +333,11 @@ export default function ProfileSetupScreen({ onComplete }: ProfileSetupProps) {
         listing.desiredDistrict;
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: bg }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: bg, }} edges={['top', 'bottom']}>
             <ThemedView
                 style={[
                     styles.container,
-                    { backgroundColor: bg, paddingTop: insets.top + 16 },
+                    { backgroundColor: bg },
                 ]}
             >
                 {/* Header */}
@@ -366,559 +364,555 @@ export default function ProfileSetupScreen({ onComplete }: ProfileSetupProps) {
                     </Pressable>
                 </View>
 
-                <KeyboardAvoidingView
-                    behavior={Platform.select({ ios: 'padding', android: 'height' })}
-                    style={{ flex: 1 }}
+                <ScrollView
+                    style={styles.content}
+                    contentContainerStyle={styles.scrollContent}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
                 >
-                    <ScrollView
-                        style={styles.content}
-                        contentContainerStyle={styles.scrollContent}
-                        showsVerticalScrollIndicator={false}
-                        keyboardShouldPersistTaps="handled"
-                    >
-                        {/* Help Text */}
-                        <View style={[styles.helpCard, { backgroundColor: `${tint}10` }]}>
-                            <Feather name="target" size={16} color={tint} />
-                            <ThemedText style={[styles.helpText, { color: tint }]}>
-                                Your swap will be visible to others looking for matches. The more
-                                details you provide, the better your chances of finding the
-                                perfect swap
-                            </ThemedText>
-                        </View>
+                    {/* Help Text */}
+                    <View style={[styles.helpCard, { backgroundColor: `${tint}10` }]}>
+                        <Feather name="target" size={16} color={tint} />
+                        <ThemedText style={[styles.helpText, { color: tint }]}>
+                            Your swap will be visible to others looking for matches. The more
+                            details you provide, the better your chances of finding the
+                            perfect swap
+                        </ThemedText>
+                    </View>
 
-                        {/* Progress Indicator */}
-                        <View style={styles.progressContainer}>
-                            <View style={styles.progressBar}>
-                                <View
-                                    style={[
-                                        styles.progressFill,
-                                        {
-                                            backgroundColor: tint,
-                                            width: `${(Object.values(listing).filter(v =>
-                                                Array.isArray(v) ? v.length > 0 : v !== ''
-                                            ).length / 9) * 100
-                                                }%`,
-                                        },
-                                    ]}
-                                />
+                    {/* Progress Indicator */}
+                    <View style={styles.progressContainer}>
+                        <View style={styles.progressBar}>
+                            <View
+                                style={[
+                                    styles.progressFill,
+                                    {
+                                        backgroundColor: tint,
+                                        width: `${(Object.values(listing).filter(v =>
+                                            Array.isArray(v) ? v.length > 0 : v !== ''
+                                        ).length / 9) * 100
+                                            }%`,
+                                    },
+                                ]}
+                            />
+                        </View>
+                        <ThemedText style={styles.progressText}>
+                            {Object.values(listing).filter(v =>
+                                Array.isArray(v) ? v.length > 0 : v !== ''
+                            ).length} of 10 fields completed
+                        </ThemedText>
+                    </View>
+
+                    {/* Current Position Section */}
+                    <View style={styles.section}>
+                        <View style={styles.sectionHeader}>
+                            <Feather name="briefcase" size={18} color={tint} />
+                            <View >
+                                <ThemedText style={styles.sectionTitle}>
+                                    Your Current Post
+                                </ThemedText>
+                                <ThemedText
+                                    style={[styles.sectionHint, { color: `${text}70`, marginTop: 4 }]}
+                                >
+                                    Tell us where you are now, we’ll use this to find your best match.
+                                </ThemedText>
                             </View>
-                            <ThemedText style={styles.progressText}>
-                                {Object.values(listing).filter(v =>
-                                    Array.isArray(v) ? v.length > 0 : v !== ''
-                                ).length} of 10 fields completed
-                            </ThemedText>
                         </View>
 
-                        {/* Current Position Section */}
-                        <View style={styles.section}>
-                            <View style={styles.sectionHeader}>
-                                <Feather name="briefcase" size={18} color={tint} />
-                                <View >
-                                    <ThemedText style={styles.sectionTitle}>
-                                        Your Current Post
-                                    </ThemedText>
-                                    <ThemedText
-                                        style={[styles.sectionHint, { color: `${text}70`, marginTop: 4 }]}
+                        {/* Ministry */}
+                        <View style={styles.fieldGroup}>
+                            <ThemedText style={styles.label}>Ministry *</ThemedText>
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={styles.chipsContainer}
+                            >
+                                {MINISTRIES.map((ministry) => {
+                                    const isSelected = listing.currentMinistry === ministry;
+                                    const isOtherSelected = ministry === 'Other' && listing.currentMinistry && !MINISTRIES.includes(listing.currentMinistry);
+
+                                    return (
+                                        <Pressable
+                                            key={ministry}
+                                            onPress={() => {
+                                                if (ministry === 'Other') {
+                                                    handleOpenMinistryModal('current');
+                                                } else {
+                                                    setListing({ ...listing, currentMinistry: ministry });
+                                                }
+                                            }}
+                                            style={({ pressed }) => [
+                                                styles.chip,
+                                                {
+                                                    backgroundColor:
+                                                        isSelected || isOtherSelected ? tint : cardBg,
+                                                    borderColor:
+                                                        isSelected || isOtherSelected ? tint : border,
+                                                    opacity: pressed ? 0.7 : 1,
+                                                },
+                                            ]}
+                                        >
+                                            <View style={styles.chipContent}>
+                                                <ThemedText
+                                                    style={[
+                                                        styles.chipText,
+                                                        {
+                                                            color:
+                                                                isSelected || isOtherSelected
+                                                                    ? '#FFFFFF'
+                                                                    : text,
+                                                        },
+                                                    ]}
+                                                >
+                                                    {ministry}
+                                                </ThemedText>
+                                                {isOtherSelected && (
+                                                    <Feather name="check" size={14} color="#FFFFFF" style={{ marginLeft: 4 }} />
+                                                )}
+                                            </View>
+                                        </Pressable>
+                                    );
+                                })}
+                            </ScrollView>
+                        </View>
+
+                        {/* District */}
+                        <View style={styles.fieldGroup}>
+                            <ThemedText style={styles.label}>District *</ThemedText>
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={styles.chipsContainer}
+                            >
+                                {DISTRICTS.map((district) => {
+                                    const isSelected = listing.currentDistrict === district;
+                                    const isOtherSelected = district === 'Other' && listing.currentDistrict && !DISTRICTS.includes(listing.currentDistrict);
+
+                                    return (
+                                        <Pressable
+                                            key={district}
+                                            onPress={() => {
+                                                if (district === 'Other') {
+                                                    handleOpenDistrictModal('current');
+                                                } else {
+                                                    setListing({ ...listing, currentDistrict: district });
+                                                }
+                                            }}
+                                            style={({ pressed }) => [
+                                                styles.chip,
+                                                {
+                                                    backgroundColor:
+                                                        isSelected || isOtherSelected ? tint : cardBg,
+                                                    borderColor:
+                                                        isSelected || isOtherSelected ? tint : border,
+                                                    opacity: pressed ? 0.7 : 1,
+                                                },
+                                            ]}
+                                        >
+                                            <View style={styles.chipContent}>
+                                                <ThemedText
+                                                    style={[
+                                                        styles.chipText,
+                                                        {
+                                                            color:
+                                                                isSelected || isOtherSelected
+                                                                    ? '#FFFFFF'
+                                                                    : text,
+                                                        },
+                                                    ]}
+                                                >
+                                                    {district}
+                                                </ThemedText>
+                                                {isOtherSelected && (
+                                                    <Feather name="check" size={14} color="#FFFFFF" style={{ marginLeft: 4 }} />
+                                                )}
+                                            </View>
+                                        </Pressable>
+                                    );
+                                })}
+                            </ScrollView>
+                        </View>
+
+                        {/* Area Type */}
+                        <View style={styles.fieldGroup}>
+                            <ThemedText style={styles.label}>Current Area Type</ThemedText>
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={styles.chipsContainer}
+                            >
+                                {AREA_TYPES.map((areaType) => (
+                                    <Pressable
+                                        key={areaType}
+                                        onPress={() =>
+                                            setListing({ ...listing, currentAreaType: areaType })
+                                        }
+                                        style={({ pressed }) => [
+                                            styles.chip,
+                                            {
+                                                backgroundColor:
+                                                    listing.currentAreaType === areaType ? tint : cardBg,
+                                                borderColor:
+                                                    listing.currentAreaType === areaType ? tint : border,
+                                                opacity: pressed ? 0.7 : 1,
+                                            },
+                                        ]}
                                     >
-                                        Tell us where you are now, we’ll use this to find your best match.
-                                    </ThemedText>
-                                </View>
-                            </View>
-
-                            {/* Ministry */}
-                            <View style={styles.fieldGroup}>
-                                <ThemedText style={styles.label}>Ministry *</ThemedText>
-                                <ScrollView
-                                    horizontal
-                                    showsHorizontalScrollIndicator={false}
-                                    contentContainerStyle={styles.chipsContainer}
-                                >
-                                    {MINISTRIES.map((ministry) => {
-                                        const isSelected = listing.currentMinistry === ministry;
-                                        const isOtherSelected = ministry === 'Other' && listing.currentMinistry && !MINISTRIES.includes(listing.currentMinistry);
-
-                                        return (
-                                            <Pressable
-                                                key={ministry}
-                                                onPress={() => {
-                                                    if (ministry === 'Other') {
-                                                        handleOpenMinistryModal('current');
-                                                    } else {
-                                                        setListing({ ...listing, currentMinistry: ministry });
-                                                    }
-                                                }}
-                                                style={({ pressed }) => [
-                                                    styles.chip,
-                                                    {
-                                                        backgroundColor:
-                                                            isSelected || isOtherSelected ? tint : cardBg,
-                                                        borderColor:
-                                                            isSelected || isOtherSelected ? tint : border,
-                                                        opacity: pressed ? 0.7 : 1,
-                                                    },
-                                                ]}
-                                            >
-                                                <View style={styles.chipContent}>
-                                                    <ThemedText
-                                                        style={[
-                                                            styles.chipText,
-                                                            {
-                                                                color:
-                                                                    isSelected || isOtherSelected
-                                                                        ? '#FFFFFF'
-                                                                        : text,
-                                                            },
-                                                        ]}
-                                                    >
-                                                        {ministry}
-                                                    </ThemedText>
-                                                    {isOtherSelected && (
-                                                        <Feather name="check" size={14} color="#FFFFFF" style={{ marginLeft: 4 }} />
-                                                    )}
-                                                </View>
-                                            </Pressable>
-                                        );
-                                    })}
-                                </ScrollView>
-                            </View>
-
-                            {/* District */}
-                            <View style={styles.fieldGroup}>
-                                <ThemedText style={styles.label}>District *</ThemedText>
-                                <ScrollView
-                                    horizontal
-                                    showsHorizontalScrollIndicator={false}
-                                    contentContainerStyle={styles.chipsContainer}
-                                >
-                                    {DISTRICTS.map((district) => {
-                                        const isSelected = listing.currentDistrict === district;
-                                        const isOtherSelected = district === 'Other' && listing.currentDistrict && !DISTRICTS.includes(listing.currentDistrict);
-
-                                        return (
-                                            <Pressable
-                                                key={district}
-                                                onPress={() => {
-                                                    if (district === 'Other') {
-                                                        handleOpenDistrictModal('current');
-                                                    } else {
-                                                        setListing({ ...listing, currentDistrict: district });
-                                                    }
-                                                }}
-                                                style={({ pressed }) => [
-                                                    styles.chip,
-                                                    {
-                                                        backgroundColor:
-                                                            isSelected || isOtherSelected ? tint : cardBg,
-                                                        borderColor:
-                                                            isSelected || isOtherSelected ? tint : border,
-                                                        opacity: pressed ? 0.7 : 1,
-                                                    },
-                                                ]}
-                                            >
-                                                <View style={styles.chipContent}>
-                                                    <ThemedText
-                                                        style={[
-                                                            styles.chipText,
-                                                            {
-                                                                color:
-                                                                    isSelected || isOtherSelected
-                                                                        ? '#FFFFFF'
-                                                                        : text,
-                                                            },
-                                                        ]}
-                                                    >
-                                                        {district}
-                                                    </ThemedText>
-                                                    {isOtherSelected && (
-                                                        <Feather name="check" size={14} color="#FFFFFF" style={{ marginLeft: 4 }} />
-                                                    )}
-                                                </View>
-                                            </Pressable>
-                                        );
-                                    })}
-                                </ScrollView>
-                            </View>
-
-                            {/* Area Type */}
-                            <View style={styles.fieldGroup}>
-                                <ThemedText style={styles.label}>Current Area Type</ThemedText>
-                                <ScrollView
-                                    horizontal
-                                    showsHorizontalScrollIndicator={false}
-                                    contentContainerStyle={styles.chipsContainer}
-                                >
-                                    {AREA_TYPES.map((areaType) => (
-                                        <Pressable
-                                            key={areaType}
-                                            onPress={() =>
-                                                setListing({ ...listing, currentAreaType: areaType })
-                                            }
-                                            style={({ pressed }) => [
-                                                styles.chip,
+                                        <ThemedText
+                                            style={[
+                                                styles.chipText,
                                                 {
-                                                    backgroundColor:
-                                                        listing.currentAreaType === areaType ? tint : cardBg,
-                                                    borderColor:
-                                                        listing.currentAreaType === areaType ? tint : border,
-                                                    opacity: pressed ? 0.7 : 1,
+                                                    color:
+                                                        listing.currentAreaType === areaType ? '#FFFFFF' : text,
                                                 },
                                             ]}
                                         >
-                                            <ThemedText
-                                                style={[
-                                                    styles.chipText,
-                                                    {
-                                                        color:
-                                                            listing.currentAreaType === areaType ? '#FFFFFF' : text,
-                                                    },
-                                                ]}
-                                            >
-                                                {areaType}
-                                            </ThemedText>
-                                        </Pressable>
-                                    ))}
-                                </ScrollView>
-                            </View>
-
-                            {/* Institution */}
-                            <View style={styles.fieldGroup}>
-                                <ThemedText style={styles.label}>Institution Name</ThemedText>
-                                <TextInput
-                                    style={[
-                                        styles.input,
-                                        { backgroundColor: inputBg, color: text, borderColor: border },
-                                    ]}
-                                    value={listing.currentInstitution}
-                                    onChangeText={(text) =>
-                                        setListing({ ...listing, currentInstitution: text })
-                                    }
-                                    placeholder="e.g., Lusaka General Hospital"
-                                    placeholderTextColor={`${text}50`}
-                                />
-                            </View>
-
-                            {/* Job Title */}
-                            <View style={styles.fieldGroup}>
-                                <ThemedText style={styles.label}>Job Title *</ThemedText>
-                                <TextInput
-                                    style={[
-                                        styles.input,
-                                        { backgroundColor: inputBg, color: text, borderColor: border },
-                                    ]}
-                                    value={listing.jobTitle}
-                                    onChangeText={(text) =>
-                                        setListing({ ...listing, jobTitle: text })
-                                    }
-                                    placeholder="e.g., Senior Nurse, Teacher, Officer"
-                                    placeholderTextColor={`${text}50`}
-                                />
-                            </View>
-
-                            {/* Salary Scale */}
-                            <View style={styles.fieldGroup}>
-                                <ThemedText style={styles.label}>Salary Scale</ThemedText>
-                                <ScrollView
-                                    horizontal
-                                    showsHorizontalScrollIndicator={false}
-                                    contentContainerStyle={styles.chipsContainer}
-                                >
-                                    {SALARY_SCALES.map((scale) => (
-                                        <Pressable
-                                            key={scale}
-                                            onPress={() =>
-                                                setListing({ ...listing, salaryScale: scale })
-                                            }
-                                            style={({ pressed }) => [
-                                                styles.chip,
-                                                {
-                                                    backgroundColor:
-                                                        listing.salaryScale === scale ? tint : cardBg,
-                                                    borderColor:
-                                                        listing.salaryScale === scale ? tint : border,
-                                                    opacity: pressed ? 0.7 : 1,
-                                                },
-                                            ]}
-                                        >
-                                            <ThemedText
-                                                style={[
-                                                    styles.chipText,
-                                                    {
-                                                        color:
-                                                            listing.salaryScale === scale ? '#FFFFFF' : text,
-                                                    },
-                                                ]}
-                                            >
-                                                {scale}
-                                            </ThemedText>
-                                        </Pressable>
-                                    ))}
-                                </ScrollView>
-                            </View>
-
-                            {/* Housing */}
-                            <View style={styles.fieldGroup}>
-                                <ThemedText style={styles.label}>Housing Condition</ThemedText>
-                                <ScrollView
-                                    horizontal
-                                    showsHorizontalScrollIndicator={false}
-                                    contentContainerStyle={styles.chipsContainer}
-                                >
-                                    {HOUSING_CONDITIONS.map((condition) => (
-                                        <Pressable
-                                            key={condition}
-                                            onPress={() =>
-                                                setListing({ ...listing, housingCondition: condition })
-                                            }
-                                            style={({ pressed }) => [
-                                                styles.chip,
-                                                {
-                                                    backgroundColor:
-                                                        listing.housingCondition === condition ? tint : cardBg,
-                                                    borderColor:
-                                                        listing.housingCondition === condition ? tint : border,
-                                                    opacity: pressed ? 0.7 : 1,
-                                                },
-                                            ]}
-                                        >
-                                            <ThemedText
-                                                style={[
-                                                    styles.chipText,
-                                                    {
-                                                        color:
-                                                            listing.housingCondition === condition
-                                                                ? '#FFFFFF'
-                                                                : text,
-                                                    },
-                                                ]}
-                                            >
-                                                {condition}
-                                            </ThemedText>
-                                        </Pressable>
-                                    ))}
-                                </ScrollView>
-                            </View>
-
-                            {/* Reason for Swap */}
-                            <View style={styles.fieldGroup}>
-                                <ThemedText style={styles.label}>Reason for Swap</ThemedText>
-                                <TextInput
-                                    style={[
-                                        styles.textArea,
-                                        { backgroundColor: inputBg, color: text, borderColor: border },
-                                    ]}
-                                    value={listing.reasonForSwap}
-                                    onChangeText={(text) =>
-                                        setListing({ ...listing, reasonForSwap: text })
-                                    }
-                                    placeholder="e.g., Family relocation, better opportunities, etc."
-                                    placeholderTextColor={`${text}50`}
-                                    multiline
-                                    numberOfLines={3}
-                                    textAlignVertical="top"
-                                />
-                            </View>
+                                            {areaType}
+                                        </ThemedText>
+                                    </Pressable>
+                                ))}
+                            </ScrollView>
                         </View>
 
-                        {/* Desired Position Section */}
-                        <View style={styles.section}>
-                            <View style={styles.sectionHeader}>
-                                <Feather name="target" size={18} color={tint} />
-                                <View >
-                                    <ThemedText style={styles.sectionTitle}>
-                                        Where You Want to Go
-                                    </ThemedText>
-                                    <ThemedText
-                                        style={[styles.sectionHint, { color: `${text}70`, marginTop: 4 }]}
+                        {/* Institution */}
+                        <View style={styles.fieldGroup}>
+                            <ThemedText style={styles.label}>Institution Name</ThemedText>
+                            <TextInput
+                                style={[
+                                    styles.input,
+                                    { backgroundColor: inputBg, color: text, borderColor: border },
+                                ]}
+                                value={listing.currentInstitution}
+                                onChangeText={(text) =>
+                                    setListing({ ...listing, currentInstitution: text })
+                                }
+                                placeholder="e.g., Lusaka General Hospital"
+                                placeholderTextColor={`${text}50`}
+                            />
+                        </View>
+
+                        {/* Job Title */}
+                        <View style={styles.fieldGroup}>
+                            <ThemedText style={styles.label}>Job Title *</ThemedText>
+                            <TextInput
+                                style={[
+                                    styles.input,
+                                    { backgroundColor: inputBg, color: text, borderColor: border },
+                                ]}
+                                value={listing.jobTitle}
+                                onChangeText={(text) =>
+                                    setListing({ ...listing, jobTitle: text })
+                                }
+                                placeholder="e.g., Senior Nurse, Teacher, Officer"
+                                placeholderTextColor={`${text}50`}
+                            />
+                        </View>
+
+                        {/* Salary Scale */}
+                        <View style={styles.fieldGroup}>
+                            <ThemedText style={styles.label}>Salary Scale</ThemedText>
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={styles.chipsContainer}
+                            >
+                                {SALARY_SCALES.map((scale) => (
+                                    <Pressable
+                                        key={scale}
+                                        onPress={() =>
+                                            setListing({ ...listing, salaryScale: scale })
+                                        }
+                                        style={({ pressed }) => [
+                                            styles.chip,
+                                            {
+                                                backgroundColor:
+                                                    listing.salaryScale === scale ? tint : cardBg,
+                                                borderColor:
+                                                    listing.salaryScale === scale ? tint : border,
+                                                opacity: pressed ? 0.7 : 1,
+                                            },
+                                        ]}
                                     >
-                                        Choose your ideal ministry and district, we’ll take it from there.
-                                    </ThemedText>
-                                </View>
-                            </View>
+                                        <ThemedText
+                                            style={[
+                                                styles.chipText,
+                                                {
+                                                    color:
+                                                        listing.salaryScale === scale ? '#FFFFFF' : text,
+                                                },
+                                            ]}
+                                        >
+                                            {scale}
+                                        </ThemedText>
+                                    </Pressable>
+                                ))}
+                            </ScrollView>
+                        </View>
 
-                            {/* Desired District */}
-                            <View style={styles.fieldGroup}>
-                                <ThemedText style={styles.label}>Desired District *</ThemedText>
-                                <ScrollView
-                                    horizontal
-                                    showsHorizontalScrollIndicator={false}
-                                    contentContainerStyle={styles.chipsContainer}
+                        {/* Housing */}
+                        <View style={styles.fieldGroup}>
+                            <ThemedText style={styles.label}>Housing Condition</ThemedText>
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={styles.chipsContainer}
+                            >
+                                {HOUSING_CONDITIONS.map((condition) => (
+                                    <Pressable
+                                        key={condition}
+                                        onPress={() =>
+                                            setListing({ ...listing, housingCondition: condition })
+                                        }
+                                        style={({ pressed }) => [
+                                            styles.chip,
+                                            {
+                                                backgroundColor:
+                                                    listing.housingCondition === condition ? tint : cardBg,
+                                                borderColor:
+                                                    listing.housingCondition === condition ? tint : border,
+                                                opacity: pressed ? 0.7 : 1,
+                                            },
+                                        ]}
+                                    >
+                                        <ThemedText
+                                            style={[
+                                                styles.chipText,
+                                                {
+                                                    color:
+                                                        listing.housingCondition === condition
+                                                            ? '#FFFFFF'
+                                                            : text,
+                                                },
+                                            ]}
+                                        >
+                                            {condition}
+                                        </ThemedText>
+                                    </Pressable>
+                                ))}
+                            </ScrollView>
+                        </View>
+
+                        {/* Reason for Swap */}
+                        <View style={styles.fieldGroup}>
+                            <ThemedText style={styles.label}>Reason for Swap</ThemedText>
+                            <TextInput
+                                style={[
+                                    styles.textArea,
+                                    { backgroundColor: inputBg, color: text, borderColor: border },
+                                ]}
+                                value={listing.reasonForSwap}
+                                onChangeText={(text) =>
+                                    setListing({ ...listing, reasonForSwap: text })
+                                }
+                                placeholder="e.g., Family relocation, better opportunities, etc."
+                                placeholderTextColor={`${text}50`}
+                                multiline
+                                numberOfLines={3}
+                                textAlignVertical="top"
+                            />
+                        </View>
+                    </View>
+
+                    {/* Desired Position Section */}
+                    <View style={styles.section}>
+                        <View style={styles.sectionHeader}>
+                            <Feather name="target" size={18} color={tint} />
+                            <View >
+                                <ThemedText style={styles.sectionTitle}>
+                                    Where You Want to Go
+                                </ThemedText>
+                                <ThemedText
+                                    style={[styles.sectionHint, { color: `${text}70`, marginTop: 4 }]}
                                 >
-                                    {DISTRICTS.map((district) => {
-                                        const isSelected = listing.desiredDistrict === district;
-                                        const isOtherSelected = district === 'Other' && listing.desiredDistrict && !DISTRICTS.includes(listing.desiredDistrict);
-
-                                        return (
-                                            <Pressable
-                                                key={district}
-                                                onPress={() => {
-                                                    if (district === 'Other') {
-                                                        handleOpenDistrictModal('desired');
-                                                    } else {
-                                                        setListing({ ...listing, desiredDistrict: district });
-                                                    }
-                                                }}
-                                                style={({ pressed }) => [
-                                                    styles.chip,
-                                                    {
-                                                        backgroundColor:
-                                                            isSelected || isOtherSelected ? tint : cardBg,
-                                                        borderColor:
-                                                            isSelected || isOtherSelected ? tint : border,
-                                                        opacity: pressed ? 0.7 : 1,
-                                                    },
-                                                ]}
-                                            >
-                                                <View style={styles.chipContent}>
-                                                    <ThemedText
-                                                        style={[
-                                                            styles.chipText,
-                                                            {
-                                                                color:
-                                                                    isSelected || isOtherSelected
-                                                                        ? '#FFFFFF'
-                                                                        : text,
-                                                            },
-                                                        ]}
-                                                    >
-                                                        {district}
-                                                    </ThemedText>
-                                                    {isOtherSelected && (
-                                                        <Feather name="check" size={14} color="#FFFFFF" style={{ marginLeft: 4 }} />
-                                                    )}
-                                                </View>
-                                            </Pressable>
-                                        );
-                                    })}
-                                </ScrollView>
+                                    Choose your ideal ministry and district, we’ll take it from there.
+                                </ThemedText>
                             </View>
+                        </View>
 
-                            {/* Desired Area Type */}
-                            <View style={styles.fieldGroup}>
-                                <ThemedText style={styles.label}>Desired Area Type</ThemedText>
-                                <ScrollView
-                                    horizontal
-                                    showsHorizontalScrollIndicator={false}
-                                    contentContainerStyle={styles.chipsContainer}
-                                >
-                                    {AREA_TYPES.map((areaType) => (
+                        {/* Desired District */}
+                        <View style={styles.fieldGroup}>
+                            <ThemedText style={styles.label}>Desired District *</ThemedText>
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={styles.chipsContainer}
+                            >
+                                {DISTRICTS.map((district) => {
+                                    const isSelected = listing.desiredDistrict === district;
+                                    const isOtherSelected = district === 'Other' && listing.desiredDistrict && !DISTRICTS.includes(listing.desiredDistrict);
+
+                                    return (
                                         <Pressable
-                                            key={areaType}
-                                            onPress={() =>
-                                                setListing({ ...listing, desiredAreaType: areaType })
-                                            }
+                                            key={district}
+                                            onPress={() => {
+                                                if (district === 'Other') {
+                                                    handleOpenDistrictModal('desired');
+                                                } else {
+                                                    setListing({ ...listing, desiredDistrict: district });
+                                                }
+                                            }}
                                             style={({ pressed }) => [
                                                 styles.chip,
                                                 {
                                                     backgroundColor:
-                                                        listing.desiredAreaType === areaType ? tint : cardBg,
+                                                        isSelected || isOtherSelected ? tint : cardBg,
                                                     borderColor:
-                                                        listing.desiredAreaType === areaType ? tint : border,
+                                                        isSelected || isOtherSelected ? tint : border,
                                                     opacity: pressed ? 0.7 : 1,
                                                 },
                                             ]}
                                         >
-                                            <ThemedText
-                                                style={[
-                                                    styles.chipText,
-                                                    {
-                                                        color:
-                                                            listing.desiredAreaType === areaType ? '#FFFFFF' : text,
-                                                    },
-                                                ]}
-                                            >
-                                                {areaType}
-                                            </ThemedText>
+                                            <View style={styles.chipContent}>
+                                                <ThemedText
+                                                    style={[
+                                                        styles.chipText,
+                                                        {
+                                                            color:
+                                                                isSelected || isOtherSelected
+                                                                    ? '#FFFFFF'
+                                                                    : text,
+                                                        },
+                                                    ]}
+                                                >
+                                                    {district}
+                                                </ThemedText>
+                                                {isOtherSelected && (
+                                                    <Feather name="check" size={14} color="#FFFFFF" style={{ marginLeft: 4 }} />
+                                                )}
+                                            </View>
                                         </Pressable>
-                                    ))}
-                                </ScrollView>
+                                    );
+                                })}
+                            </ScrollView>
+                        </View>
+
+                        {/* Desired Area Type */}
+                        <View style={styles.fieldGroup}>
+                            <ThemedText style={styles.label}>Desired Area Type</ThemedText>
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={styles.chipsContainer}
+                            >
+                                {AREA_TYPES.map((areaType) => (
+                                    <Pressable
+                                        key={areaType}
+                                        onPress={() =>
+                                            setListing({ ...listing, desiredAreaType: areaType })
+                                        }
+                                        style={({ pressed }) => [
+                                            styles.chip,
+                                            {
+                                                backgroundColor:
+                                                    listing.desiredAreaType === areaType ? tint : cardBg,
+                                                borderColor:
+                                                    listing.desiredAreaType === areaType ? tint : border,
+                                                opacity: pressed ? 0.7 : 1,
+                                            },
+                                        ]}
+                                    >
+                                        <ThemedText
+                                            style={[
+                                                styles.chipText,
+                                                {
+                                                    color:
+                                                        listing.desiredAreaType === areaType ? '#FFFFFF' : text,
+                                                },
+                                            ]}
+                                        >
+                                            {areaType}
+                                        </ThemedText>
+                                    </Pressable>
+                                ))}
+                            </ScrollView>
+                        </View>
+                    </View>
+
+                    {/* Additional Details Section */}
+                    <View style={styles.section}>
+                        <View style={styles.sectionHeader}>
+                            <Feather name="file-text" size={18} color={tint} />
+                            <View >
+                                <ThemedText style={styles.sectionTitle}>
+                                    Additional Information
+                                </ThemedText>
+                                <ThemedText
+                                    style={[styles.sectionHint, { color: `${text}70`, marginTop: 4 }]}
+                                >
+                                    Share details like schools or transport, we’ll match you better.
+                                </ThemedText>
                             </View>
                         </View>
 
-                        {/* Additional Details Section */}
-                        <View style={styles.section}>
+                        {/* Details Text Area */}
+                        <View style={styles.fieldGroup}>
+                            <ThemedText style={styles.label}>
+                                Anything else to share?
+                            </ThemedText>
+                            <TextInput
+                                style={[
+                                    styles.textArea,
+                                    { backgroundColor: inputBg, color: text, borderColor: border },
+                                ]}
+                                value={listing.additionalDetails}
+                                onChangeText={(text) =>
+                                    setListing({ ...listing, additionalDetails: text })
+                                }
+                                placeholder="e.g., Close to schools, near city center, etc."
+                                placeholderTextColor={`${text}50`}
+                                multiline
+                                numberOfLines={4}
+                                textAlignVertical="top"
+                            />
+                        </View>
+
+                        {/* Images */}
+                        <View style={styles.fieldGroup}>
                             <View style={styles.sectionHeader}>
                                 <Feather name="file-text" size={18} color={tint} />
                                 <View >
                                     <ThemedText style={styles.sectionTitle}>
-                                        Additional Information
+                                        Photos
                                     </ThemedText>
                                     <ThemedText
                                         style={[styles.sectionHint, { color: `${text}70`, marginTop: 4 }]}
                                     >
-                                        Share details like schools or transport, we’ll match you better.                                </ThemedText>
+                                        Add up to 4 photos to showcase your current location and setup
+                                    </ThemedText>
                                 </View>
                             </View>
 
-                            {/* Details Text Area */}
-                            <View style={styles.fieldGroup}>
-                                <ThemedText style={styles.label}>
-                                    Anything else to share?
-                                </ThemedText>
-                                <TextInput
-                                    style={[
-                                        styles.textArea,
-                                        { backgroundColor: inputBg, color: text, borderColor: border },
-                                    ]}
-                                    value={listing.additionalDetails}
-                                    onChangeText={(text) =>
-                                        setListing({ ...listing, additionalDetails: text })
-                                    }
-                                    placeholder="e.g., Close to schools, near city center, etc."
-                                    placeholderTextColor={`${text}50`}
-                                    multiline
-                                    numberOfLines={4}
-                                    textAlignVertical="top"
-                                />
-                            </View>
-
-                            {/* Images */}
-                            <View style={styles.fieldGroup}>
-                                <View style={styles.sectionHeader}>
-                                    <Feather name="file-text" size={18} color={tint} />
-                                    <View >
-                                        <ThemedText style={styles.sectionTitle}>
-                                            Photos
-                                        </ThemedText>
-                                        <ThemedText
-                                            style={[styles.sectionHint, { color: `${text}70`, marginTop: 4 }]}
-                                        >
-                                            Add up to 4 photos to showcase your current location and setup
-                                        </ThemedText>
-                                    </View>
-                                </View>
-
-                                <View style={styles.imagesContainer}>
-                                    {selectedImages.map((uri, index) => (
-                                        <View key={index} style={styles.imageWrapper}>
-                                            <Image source={{ uri }} style={styles.image} />
-                                            <Pressable
-                                                onPress={() => handleRemoveImage(index)}
-                                                style={[styles.removeButton, { backgroundColor: tint }]}
-                                            >
-                                                <Feather name="x" size={14} color="#FFFFFF" />
-                                            </Pressable>
-                                        </View>
-                                    ))}
-
-                                    {selectedImages.length < 4 && (
+                            <View style={styles.imagesContainer}>
+                                {selectedImages.map((uri, index) => (
+                                    <View key={index} style={styles.imageWrapper}>
+                                        <Image source={{ uri }} style={styles.image} />
                                         <Pressable
-                                            onPress={handleImagePick}
-                                            style={[
-                                                styles.addImageButton,
-                                                { backgroundColor: cardBg, borderColor: border },
-                                            ]}
+                                            onPress={() => handleRemoveImage(index)}
+                                            style={[styles.removeButton, { backgroundColor: tint }]}
                                         >
-                                            <Feather name="camera" size={24} color={tint} />
-                                            <ThemedText style={[styles.addImageText, { color: tint }]}>
-                                                Add Photo
-                                            </ThemedText>
+                                            <Feather name="x" size={14} color="#FFFFFF" />
                                         </Pressable>
-                                    )}
-                                </View>
+                                    </View>
+                                ))}
+
+                                {selectedImages.length < 4 && (
+                                    <Pressable
+                                        onPress={handleImagePick}
+                                        style={[
+                                            styles.addImageButton,
+                                            { backgroundColor: cardBg, borderColor: border },
+                                        ]}
+                                    >
+                                        <Feather name="camera" size={24} color={tint} />
+                                        <ThemedText style={[styles.addImageText, { color: tint }]}>
+                                            Add Photo
+                                        </ThemedText>
+                                    </Pressable>
+                                )}
                             </View>
                         </View>
-                    </ScrollView>
-                </KeyboardAvoidingView>
+                    </View>
+                </ScrollView>
 
                 {/* Footer */}
                 <View style={styles.footer}>
@@ -1147,7 +1141,7 @@ const styles = StyleSheet.create({
     },
     footer: {
         paddingHorizontal: 24,
-        paddingVertical: 16,
+        paddingTop: 16,
         borderTopWidth: 1,
         borderTopColor: 'rgba(128, 128, 128, 0.1)',
     },

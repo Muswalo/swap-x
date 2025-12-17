@@ -87,8 +87,6 @@ export default function HomeScreen() {
   const bg = useThemeColor({}, "background");
   const text = useThemeColor({}, "text");
   const tint = useThemeColor({}, "tint");
-  const border = `${text}20`;
-  const cardBg = `${text}0A`;
 
   const handleSwapCardPress = (swapId: string, posterName: string) => {
     router.push({
@@ -137,7 +135,7 @@ export default function HomeScreen() {
   useEffect(() => {
     if (!hasCompletedProfile) return;
 
-    const channel = realtimeUtils.subscribeToSwaps((swap) => {
+    const channel = realtimeUtils.subscribeToSwaps(() => {
       // Reload swaps when a new swap is created or updated
       loadSwaps();
     });

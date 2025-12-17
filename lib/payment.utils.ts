@@ -6,7 +6,7 @@
  * and contact access granting.
  */
 
-import type { PaymentMethod, PaymentResult, PaymentType, SubscriptionStatus } from './payment.types';
+import type { PaymentMethod, PaymentResult, PaymentType, SubscriptionStatus, Transaction } from './payment.types';
 import { isValidPaymentType } from './payment.types';
 import { supabase } from './supabase';
 
@@ -496,4 +496,35 @@ export async function handleSubscriptionPurchase(
       error: 'Payment successful but subscription not activated. Please contact support.',
     };
   }
+}
+
+
+/**
+ * Get transaction history for a user.
+ * Queries the transactions table by user_id and returns records sorted by created_at descending.
+ * 
+ * Requirements: 6.5
+ * 
+ * @param userId - The ID of the user to get transactions for
+ * @returns Promise<Transaction[]> - Array of transaction records sorted by created_at descending
+ */
+export async function getTransactionHistory(
+  userId: string
+): Promise<Transaction[]> {
+  if (!userId) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from('transactions')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error getting transaction history:', error);
+    return [];
+  }
+
+  return (data as Transaction[]) ?? [];
 }

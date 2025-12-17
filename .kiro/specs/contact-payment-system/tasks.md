@@ -220,24 +220,51 @@
 
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 8. Add subscription and balance management
-  - [ ] 8.1 Add subscription status display to settings
+- [x] 8. Add subscription and balance management
+
+
+
+
+
+
+  - [x] 8.1 Add subscription status display to settings
+
     - Show active/expired status
     - Show days remaining if active
     - _Requirements: 5.3, 7.5_
-  - [ ] 8.2 Add view balance display to payment modal
+
+  - [x] 8.2 Add view balance display to payment modal
+
     - Show "You have X views remaining" when balance > 0
     - Offer to use one view instead of paying
     - _Requirements: 5.4_
-  - [ ] 8.3 Implement use-view-from-balance flow
+
+  - [x] 8.3 Implement use-view-from-balance flow
+
     - Decrement balance and grant access
     - _Requirements: 5.2, 5.3_
   - [ ]* 8.4 Write property test for expired subscription
     - **Property 9: Expired subscription requires payment**
     - **Validates: Requirements 7.4**
 
-- [ ] 9. Add transaction query functionality
-  - [ ] 9.1 Create getTransactionHistory function
+- [x] 9. Add transaction query functionality
+
+
+
+
+
+
+
+
+
+
+
+
+
+  - [x] 9.1 Create getTransactionHistory function
+
+
+
     - Query transactions by user_id
     - Return sorted by created_at descending
     - _Requirements: 6.5_

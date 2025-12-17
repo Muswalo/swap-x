@@ -5,13 +5,11 @@ import { StyleSheet, Text, View } from 'react-native';
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
-import { useNotification } from '@/context/notifications-provider';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { supabase } from '@/lib/supabase';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
-  const { unreadCount, refreshUnreadCount } = useNotification();
   const [unreadMessages, setUnreadMessages] = useState(0);
 
   useEffect(() => {
